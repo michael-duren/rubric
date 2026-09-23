@@ -1,23 +1,79 @@
-# go skills
+# rubric
 
 ## about
 
-A repo dedicated to agentic go skills and deterministic tooling around agents.
+Agentic skills and deterministic tooling that grade agent work against a strict,
+explicit standard. Starting with go, designed to become language independent.
 
-Referencing [https://x.com/poteto/status/2102050467505430555](laurens video) I'll
+Referencing [laurens video](https://x.com/poteto/status/2102050467505430555) I'll
 be adapting their practices to go lang projects.
+
+## principles
+
+- **Deterministic over prompted.** Anything that can be checked by a tool is checked
+  by a tool. Skills tell agents which tool to run, not how to judge.
+- **Repo local.** Skills, config, and generated tooling live in the user's repo and are
+  committed. No global install state required for an agent to do the right thing.
+- **Diff scoped.** Validation, path coverage, and perf checks run against code changed
+  since `merge-base main`, so cost scales with the change, not the repo.
+- **Prove it.** Agents back claims (coverage, performance) with measured output.
 
 ## features
 
-- [ ] Deterministic tooling: script that generates makefile updates based on appication
-      needs, tracing standardization for measuring performance characteristics.
-- [ ] Style Guide: Referenced go lang style guides, best practices, no comments by agents.
-- [ ] CI: Linting as strict as possible, LSP/Hint INFO level diagnostic: complies exactly
-      with anything the go compilers thought was useful.
-- [ ] Skills:
-  - [ ] Tracing: use the OTEL tracing tooling to evaluate performance bottlenecks.
+- [ ] **Skills (repo local)**
+  - [ ] Installed into the repo (e.g. `.claude/skills/`) with an `AGENTS.md` pointer so
+        non-Claude agents find the same guidance.
+  - [ ] Tracing: use OTEL tooling to find bottlenecks and report before/after deltas.
   - [ ] Issues: issue creation for different types of features.
-- [ ] CLI:
-  - [ ] Bootstraps users project with an interactive tui for selecting go skill features.
-  - [ ] Users a serious of questions to setup initial prompts to get started.
-  - [ ] run/test/validate: for agents to run deterministic tooling locally and in CI around validation, makefile generation, observability information, LSP conformance and more.
+
+- [ ] **Style guide**
+  - [ ] Referenced go style guides and best practices.
+  - [ ] No inline comments by agents. Doc comments on exported symbols are required
+        (go convention, enforced via lint).
+
+- [ ] **Makefile generation**
+  - [ ] Detect application needs from `go.mod` imports and repo layout.
+  - [ ] Write detected needs to a `rubric.yaml` the user can review and edit.
+  - [ ] Generate the Makefile from `rubric.yaml` only, so output is reproducible.
+  - [ ] Targets to run the application in every supported configuration.
+
+- [ ] **Path coverage of changed code**
+  - [ ] Build a control-flow graph (`golang.org/x/tools/go/ssa`) for each changed function
+        and enumerate branch combinations: user types, request shapes, logic branches.
+  - [ ] Run tests with coverage and mark which enumerated paths were hit.
+  - [ ] Pairwise combination selection by default to avoid combinatorial explosion,
+        full enumeration on demand.
+  - [ ] Scaffold table-test skeletons, one row per uncovered path, for the agent to fill
+        with inputs and assertions.
+  - [ ] Rerun to confirm coverage. CI hard fails on any uncovered changed path.
+
+- [ ] **Performance proof**
+  - [ ] `go test -bench` on base vs change, compared with `benchstat` for statistically
+        significant deltas.
+  - [ ] Trace diffs: per-operation OTEL span durations across runs of the same scenario.
+  - [ ] Load tests against the running app, comparing p50/p95/p99 and throughput.
+  - [ ] Output is agent readable (JSON/summary files), no collector UI required.
+
+- [ ] **CI (GitHub Actions)**
+  - [ ] Generated workflow that calls `rubric validate`.
+  - [ ] Linting as strict as possible.
+  - [ ] LSP diagnostics down to hint/info level: complies exactly with anything the go
+        toolchain thought was useful.
+  - [ ] Path coverage gate and perf reports on PRs.
+
+- [ ] **CLI**
+  - [ ] `rubric init`: interactive TUI to select features and bootstrap the repo.
+  - [ ] Asks a series of questions to set up initial prompts.
+  - [ ] `rubric validate`: lint, LSP conformance, path coverage.
+  - [ ] `rubric make`: detect needs, update `rubric.yaml`, regenerate the Makefile.
+  - [ ] `rubric paths`: list changed-code paths, coverage status, scaffold tests.
+  - [ ] `rubric perf`: run benchmarks, trace diffs, load tests, emit before/after report.
+
+## open questions
+
+- Infeasible paths: how to mark SSA paths that can't be reached (annotation, config, or
+  solver)?
+- Load test tool: k6, vegeta, or built in?
+- TUI library: bubbletea?
+- Issues skill: which issue types, and GitHub Issues only?
+- Language independence: which parts become a per-language plugin interface?
