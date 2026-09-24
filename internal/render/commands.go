@@ -137,8 +137,8 @@ func StarterName(c config.Config) string {
 	if len(elems) > 1 && majorVersion.MatchString(name) {
 		name = elems[len(elems)-2]
 	}
-	name = strings.Trim(starterUnsafe.ReplaceAllString(strings.ToLower(name), "-"), "-.")
-	if name == "" {
+	name = strings.Trim(starterUnsafe.ReplaceAllString(strings.ToLower(name), "-"), "-._")
+	if name == "" || name == "testdata" {
 		return "app"
 	}
 	return name

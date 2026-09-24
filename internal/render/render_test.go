@@ -151,7 +151,9 @@ func TestDefaultStarterAlwaysHasAnExecutable(t *testing.T) {
 	}{
 		{"example.com/demo", "cmd/demo/main.go"},
 		{"example.com/Shop.API/v2", "cmd/shop.api/main.go"},
-		{"example.com/@@@", "cmd/app/main.go"},
+		{"example.com/---", "cmd/app/main.go"},
+		{"example.com/_tool", "cmd/tool/main.go"},
+		{"example.com/testdata", "cmd/app/main.go"},
 		{"tool", "cmd/tool/main.go"},
 	} {
 		c := config.Defaults()
@@ -159,10 +161,7 @@ func TestDefaultStarterAlwaysHasAnExecutable(t *testing.T) {
 		c.Features.Database, c.Features.Access = "sqlite", "sql"
 		files, err := render.Files(c, "new")
 		if err != nil {
-			if strings.Contains(tt.module, "@") {
-				continue
-			}
-			t.Fatal(err)
+			t.Fatalf("%s: %v", tt.module, err)
 		}
 		main := string(testproject.File(t, files, tt.dir))
 		if !strings.Contains(main, "store.Open") {

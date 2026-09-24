@@ -380,6 +380,32 @@ func TestMarkerTextRejected(t *testing.T) {
 	}
 }
 
+func TestAdoptedProjectGuidanceDescribesUserEntryPoints(t *testing.T) {
+	for _, layout := range []map[string]string{
+		{"main.go": "package main\n\nfunc main() {}\n"},
+		{"cmd/foo/main.go": "package main\n\nfunc main() {}\n"},
+	} {
+		root := t.TempDir()
+		put(t, root, "go.mod", "module example.com/foo\n\ngo 1.26.7\n")
+		for name, body := range layout {
+			put(t, root, name, body)
+		}
+		p := mustPrepare(t, Request{Target: root, Mode: "auto"})
+		if p.Config.Project.Starter != "module" {
+			t.Fatalf("adopted project recorded starter %q", p.Config.Project.Starter)
+		}
+		for _, a := range p.Actions {
+			if a.File.Path != "AGENTS.md" {
+				continue
+			}
+			text := string(a.File.Data)
+			if strings.Contains(text, "minimal entry point") || strings.Contains(text, "wiring only") || !strings.Contains(text, "executable entry point") {
+				t.Fatalf("guidance makes claims about user code:\n%s", text)
+			}
+		}
+	}
+}
+
 func TestRerunKeepsGeneratorRecord(t *testing.T) {
 	root := t.TempDir()
 	req := newRequest(root, config.Patch{"features.http": "chi", "features.database": "sqlite", "features.access": "sqlc"})
