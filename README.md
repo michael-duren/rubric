@@ -25,11 +25,15 @@ be adapting their practices to go lang projects.
         non-Claude agents find the same guidance.
   - [ ] Tracing: use OTEL tooling to find bottlenecks and report before/after deltas.
   - [ ] Issues: issue creation for different types of features.
+  - [ ] Bug reporting: agents file issues themselves when they find bugs outside the
+        scope of their current task, with repro steps, failing path/test, and trace or
+        benchmark evidence attached. Deduped against open issues before filing.
 
 - [ ] **Style guide**
   - [ ] Referenced go style guides and best practices.
   - [ ] No inline comments by agents. Doc comments on exported symbols are required
         (go convention, enforced via lint).
+  - [ ] Doc comments max 2 lines, 150 chars per line. Enforced by a custom analyzer.
 
 - [ ] **Makefile generation**
   - [ ] Detect application needs from `go.mod` imports and repo layout.
@@ -76,4 +80,5 @@ be adapting their practices to go lang projects.
 - Load test tool: k6, vegeta, or built in?
 - TUI library: bubbletea?
 - Issues skill: which issue types, and GitHub Issues only?
+- Bug issues: file directly, or draft for human approval first? Label/severity scheme?
 - Language independence: which parts become a per-language plugin interface?
