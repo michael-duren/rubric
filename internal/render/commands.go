@@ -50,6 +50,9 @@ func Commands(c config.Config, mode string) []config.Command {
 			Name: "generate", Dir: ".", Argv: []string{"go", "run", catalog.Launcher("sqlc"), "generate"}, Env: []string{},
 		})
 	}
+	if c.Tooling.Lint {
+		derived = append(derived, config.Command{Name: "lint", Dir: ".", Argv: []string{"sh", checkScript, "lint"}, Env: []string{}})
+	}
 	postgres := mode == "new" && c.Features.Database == "postgres"
 	if postgres {
 		derived = append(derived, config.Command{

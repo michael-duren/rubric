@@ -126,7 +126,6 @@ func TestQueriesWithTx(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close()
 	mock.ExpectBegin()
 	mock.ExpectExec(regexp.QuoteMeta("INSERT INTO entries")).WithArgs("k", "v").WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectCommit()
@@ -138,6 +137,10 @@ func TestQueriesWithTx(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := tx.Commit(); err != nil {
+		t.Fatal(err)
+	}
+	mock.ExpectClose()
+	if err := db.Close(); err != nil {
 		t.Fatal(err)
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {

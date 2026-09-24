@@ -62,6 +62,22 @@ func TestDependencies(t *testing.T) {
 	}
 }
 
+func TestTools(t *testing.T) {
+	sqlc := config.Features{Database: "sqlite", Access: "sqlc"}
+	if got := Tools(sqlc, config.Tooling{}, true); !maps.Equal(got, map[string]string{"sqlc": "v1.31.1"}) {
+		t.Fatalf("sqlc tools = %v", got)
+	}
+	if got := Tools(sqlc, config.Tooling{Lint: true}, false); !maps.Equal(got, map[string]string{"golangci-lint": "v2.13.2"}) {
+		t.Fatalf("existing lint tools = %v", got)
+	}
+	if got := Tools(config.Features{}, config.Tooling{}, true); len(got) != 0 {
+		t.Fatalf("no tools expected: %v", got)
+	}
+	if got := Launcher("golangci-lint"); got != "github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.13.2" {
+		t.Fatalf("launcher = %s", got)
+	}
+}
+
 func TestDependenciesRejectsUnknownChoices(t *testing.T) {
 	for _, f := range []config.Features{
 		{HTTP: "gin", Database: "none", Access: "none", CLI: "none", TUI: "none", Config: "stdlib"},

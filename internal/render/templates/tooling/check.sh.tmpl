@@ -1,0 +1,83 @@
+#!/bin/sh
+set -eu
+cd "$(dirname "$0")/.."
+
+required="{{.GoVersion}}"
+
+fail() {
+	printf 'rubric: %s\n' "$*" >&2
+	exit 1
+}
+
+version_ge() {
+	awk -v have="$1" -v want="$2" 'BEGIN {
+		split(have, h, "."); split(want, w, ".")
+		for (i = 1; i <= 3; i++) {
+			if (h[i] + 0 > w[i] + 0) exit 0
+			if (h[i] + 0 < w[i] + 0) exit 1
+		}
+		exit 0
+	}'
+}
+
+require_env() {
+	for name in "$@"; do
+		eval "value=\${$name-}"
+		[ -n "$value" ] || fail "$name must be set for this check"
+	done
+}
+
+packages() {
+	list=$(go list ./...) || fail "go list ./... failed; fix the module before running checks"
+	[ -n "$list" ]
+}
+
+current=$(go env GOVERSION) || fail "the go command is not available"
+current=${current#go}
+current=${current%% *}
+version_ge "$current" "$required" || fail "Go $required or newer is required for these checks; found $current. go.mod was not changed."
+
+op=${1-}
+[ $# -eq 0 ] || shift
+case "$op" in
+	build)
+		if packages; then
+			{{.Build}}
+		else
+			echo "rubric: no application packages to build yet"
+		fi
+		;;
+	test)
+		if packages; then
+			{{.Test}}
+		else
+			echo "rubric: no application packages to test yet"
+		fi
+{{- if .Lint}}
+		go test ./.rubric/style
+{{- end}}
+		;;
+{{- if .Lint}}
+	lint)
+		go run {{.LintLauncher}} fmt --diff
+		if packages; then
+			go run {{.LintLauncher}} run
+		else
+			echo "rubric: no application packages to lint yet"
+		fi
+		go run ./.rubric/style .
+		;;
+{{- end}}
+{{- range .Ops}}
+	{{.Name}})
+{{- if .Env}}
+		require_env{{range .Env}} {{.}}{{end}}
+{{- end}}
+		{{if .Run}}exec {{end}}{{.Line}}{{if .Run}} "$@"{{end}}
+		;;
+{{- end}}
+	*)
+		printf 'usage: sh .rubric/check.sh {build|test{{if .Lint}}|lint{{end}}{{range .Ops}}|{{.Name}}{{end}}}\n' >&2
+		exit 2
+		;;
+esac

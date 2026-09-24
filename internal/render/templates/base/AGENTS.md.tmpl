@@ -32,6 +32,10 @@ Runtime settings are loaded by `internal/config`:
 {{range .Settings}}- {{.}}
 {{end}}{{end}}{{if .Env}}
 Required environment variables: {{.Env}}. Never commit their values.
+{{end}}{{end}}{{if .Tooling}}
+## Tooling
+
+{{range .Tooling}}- {{.}}
 {{end}}{{end}}
 ## Testing
 

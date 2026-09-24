@@ -1,0 +1,18 @@
+.POSIX:
+.PHONY: build test{{if .Lint}} lint{{end}}{{range .Ops}} {{.Name}}{{end}}
+
+build:
+	sh .rubric/check.sh build
+
+test:
+	sh .rubric/check.sh test
+{{- if .Lint}}
+
+lint:
+	sh .rubric/check.sh lint
+{{- end}}
+{{- range .Ops}}
+
+{{.Name}}:
+	sh .rubric/check.sh {{.Name}}
+{{- end}}

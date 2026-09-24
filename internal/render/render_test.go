@@ -51,7 +51,7 @@ func TestRunnableMainIsMinimal(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := string(testproject.File(t, files, "main.go")); got != "package main\n\nfunc main() {}\n" {
+	if got := string(testproject.File(t, files, "main.go")); got != "// Command demo is the module entry point.\npackage main\n\nfunc main() {}\n" {
 		t.Fatalf("main.go = %q", got)
 	}
 }

@@ -78,14 +78,18 @@ func Cases() []config.Features {
 }
 
 var tools = map[string]struct{ path, version string }{
-	"sqlc": {"github.com/sqlc-dev/sqlc/cmd/sqlc", "v1.31.1"},
+	"sqlc":          {"github.com/sqlc-dev/sqlc/cmd/sqlc", "v1.31.1"},
+	"golangci-lint": {"github.com/golangci/golangci-lint/v2/cmd/golangci-lint", "v2.13.2"},
 }
 
-// Tools returns the pinned tool versions the selected features run through the Go toolchain.
-func Tools(f config.Features) map[string]string {
+// Tools returns pinned versions of tools run through the Go toolchain; sqlc applies only to generated projects.
+func Tools(f config.Features, t config.Tooling, generated bool) map[string]string {
 	out := map[string]string{}
-	if f.Access == "sqlc" {
+	if generated && f.Access == "sqlc" {
 		out["sqlc"] = tools["sqlc"].version
+	}
+	if t.Lint {
+		out["golangci-lint"] = tools["golangci-lint"].version
 	}
 	return out
 }

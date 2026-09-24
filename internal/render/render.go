@@ -53,7 +53,7 @@ var outputs = []output{
 	{path: "rubric.yaml", kind: KindConfig, when: always, build: encodeConfig},
 }
 
-var funcs = template.FuncMap{"quote": strconv.Quote}
+var funcs = template.FuncMap{"quote": strconv.Quote, "shellLine": shellLine, "codeList": codeList}
 
 func always(config.Config, string) bool {
 	return true
@@ -117,9 +117,9 @@ func Files(cfg config.Config, mode string) ([]File, error) {
 		}
 		files = append(files, File{Path: out.path, Data: body, Mode: mode, Kind: out.kind})
 	}
-	extra, err := styleFiles(cfg)
+	extra, err := Tooling(cfg)
 	if err != nil {
-		return nil, fmt.Errorf("render style analyzer: %w", err)
+		return nil, fmt.Errorf("render tooling: %w", err)
 	}
 	return finish(append(files, extra...))
 }
@@ -136,13 +136,17 @@ func Normalize(cfg config.Config, mode string) (config.Config, error) {
 			return cfg, err
 		}
 		cfg.Generator.Dependencies = deps
-		cfg.Generator.Tools = catalog.Tools(cfg.Features)
 	}
+	cfg.Generator.Tools = catalog.Tools(cfg.Features, cfg.Tooling, mode == "new")
 	return cfg, nil
 }
 
 func execute(name string, value any) ([]byte, error) {
-	tmpl, err := template.New(name).Funcs(funcs).Option("missingkey=error").ParseFS(templates, "templates/"+name)
+	tmpl := template.New(name).Funcs(funcs).Option("missingkey=error")
+	if strings.HasSuffix(name, ".yml.tmpl") && strings.HasPrefix(name, "tooling/workflow") {
+		tmpl = tmpl.Delims("[[", "]]")
+	}
+	tmpl, err := tmpl.ParseFS(templates, "templates/"+name)
 	if err != nil {
 		return nil, err
 	}

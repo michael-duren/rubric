@@ -1,3 +1,4 @@
+// Package cli implements the application's command-line commands.
 package cli
 
 import (
@@ -38,7 +39,7 @@ func Run(ctx context.Context, args []string, out io.Writer, check func(context.C
 }
 
 func usage(fs *flag.FlagSet) {
-	fmt.Fprintf(fs.Output(), "Usage: %s <command>\n\nCommands:\n  status  report whether the application is ready\n", program)
+	_, _ = fmt.Fprintf(fs.Output(), "Usage: %s <command>\n\nCommands:\n  status  report whether the application is ready\n", program)
 	fs.PrintDefaults()
 }
 
