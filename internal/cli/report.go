@@ -123,7 +123,9 @@ func writeText(out, errw io.Writer, r report) {
 	case "dry-run":
 		fmt.Fprintln(out, "\nDry run: no files were written.")
 	case "ok":
-		fmt.Fprintf(out, "\nApplied %d file(s).\n", len(r.Result.Applied))
+		if r.Result != nil {
+			fmt.Fprintf(out, "\nApplied %d file(s). Dependencies were not downloaded and no project tests were run.\n", len(r.Result.Applied))
+		}
 	}
 	if len(r.Next) > 0 {
 		fmt.Fprintln(out, "\nCommands:")

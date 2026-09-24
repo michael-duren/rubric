@@ -11,6 +11,7 @@ import (
 
 	"github.com/michael-duren/go-skills/internal/initialize"
 	"github.com/michael-duren/go-skills/internal/plan"
+	"github.com/michael-duren/go-skills/internal/wizard"
 	"github.com/michael-duren/go-skills/internal/write"
 )
 
@@ -83,6 +84,11 @@ func initCommand(s Streams) *cobra.Command {
 			target = args[0]
 		}
 		c.Annotations["reported"] = "true"
+		if s.Terminal && o.format == "text" && !o.nonInteractive && !o.dryRun {
+			p, res, err := interactive(c.Context(), c, o, target, s)
+			writeText(s.Out, s.Err, newReport(target, false, p, res, err))
+			return err
+		}
 		p, res, err := execute(c.Context(), c, o, target)
 		r := newReport(target, o.dryRun, p, res, err)
 		if o.format == "json" {
@@ -97,18 +103,44 @@ func initCommand(s Streams) *cobra.Command {
 	return cmd
 }
 
-func execute(ctx context.Context, c *cobra.Command, o options, target string) (*plan.Plan, *write.Result, error) {
+var runWizard = wizard.Run
+
+func request(c *cobra.Command, o options, target string) (initialize.Request, error) {
 	patch, err := overrides(c.Flags(), o)
 	if err != nil {
-		return nil, nil, &initialize.InputError{Cause: err}
+		return initialize.Request{}, &initialize.InputError{Cause: err}
 	}
 	req := initialize.Request{Target: target, Mode: o.mode, Overrides: patch}
 	if o.configPath != "" {
 		data, err := os.ReadFile(o.configPath)
 		if err != nil {
-			return nil, nil, &initialize.InputError{Cause: fmt.Errorf("--config: %w", err)}
+			return initialize.Request{}, &initialize.InputError{Cause: fmt.Errorf("--config: %w", err)}
 		}
 		req.Input = data
+	}
+	return req, nil
+}
+
+func interactive(ctx context.Context, c *cobra.Command, o options, target string, s Streams) (*plan.Plan, *write.Result, error) {
+	req, err := request(c, o, target)
+	if err != nil {
+		return nil, nil, err
+	}
+	outcome, err := runWizard(ctx, req, s.In, s.Out)
+	if outcome.Cancelled && err == nil {
+		err = context.Canceled
+	}
+	var p *plan.Plan
+	if outcome.Plan.Mode != "" {
+		p = &outcome.Plan
+	}
+	return p, &outcome.Result, err
+}
+
+func execute(ctx context.Context, c *cobra.Command, o options, target string) (*plan.Plan, *write.Result, error) {
+	req, err := request(c, o, target)
+	if err != nil {
+		return nil, nil, err
 	}
 	p, err := initialize.Prepare(ctx, req)
 	if err != nil {
