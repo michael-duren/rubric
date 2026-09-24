@@ -346,10 +346,31 @@ func TestFirstRerunIsNoOp(t *testing.T) {
 	}
 }
 
+func TestFirstRerunIsNoOpInNonEmptyDirectory(t *testing.T) {
+	root := t.TempDir()
+	put(t, root, "tools/tools.go", "package tools\n\nimport \"net/http\"\n\nvar _ = http.MethodGet\n")
+	put(t, root, "notes.txt", "keep\n")
+	req := newRequest(root, nil)
+	req.Mode = "new"
+	if _, err := Apply(context.Background(), req, mustPrepare(t, req)); err != nil {
+		t.Fatal(err)
+	}
+	p := mustPrepare(t, Request{Target: root, Mode: "auto"})
+	for _, a := range p.Actions {
+		if a.State != plan.StateUnchanged {
+			t.Fatalf("first rerun %s %s:\n%s", a.State, a.File.Path, a.File.Data)
+		}
+	}
+}
+
 func TestMarkerTextRejected(t *testing.T) {
 	for _, patch := range []config.Patch{
 		{"project.description": "x <!-- rubric:end --> y"},
+		{"project.description": "line one\n## Commands"},
 		{"features.http": "gin\n<!-- rubric:end -->"},
+		{"commands": []config.Command{{Name: "x", Dir: ".", Argv: []string{"echo", "<!-- rubric:end -->"}, Env: []string{}}}},
+		{"commands": []config.Command{{Name: "<!-- rubric:begin -->", Dir: ".", Argv: []string{"echo"}, Env: []string{}}}},
+		{"entry_points": []config.EntryPoint{{Name: "<!-- rubric:end -->", Dir: "."}}},
 	} {
 		root := t.TempDir()
 		put(t, root, "go.mod", "module example.com/demo\n\ngo 1.26.7\n")

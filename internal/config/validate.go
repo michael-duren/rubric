@@ -51,15 +51,15 @@ func Validate(cfg Config, mode string) error {
 	if n := utf8.RuneCountInString(cfg.Project.Name); n > maxNameRunes {
 		fail("project.name: %d characters; the limit is %d", n, maxNameRunes)
 	}
-	if strings.ContainsRune(cfg.Project.Description, 0) {
-		fail("project.description: must not contain NUL")
+	if hasControl(cfg.Project.Description) {
+		fail("project.description: must be a single line without control characters")
 	}
 	for key, value := range map[string]string{
 		"project.name": cfg.Project.Name, "project.description": cfg.Project.Description,
 		"features.http": cfg.Features.HTTP, "features.database": cfg.Features.Database, "features.access": cfg.Features.Access,
 		"features.cli": cfg.Features.CLI, "features.tui": cfg.Features.TUI, "features.config": cfg.Features.Config,
 	} {
-		if strings.Contains(value, "rubric:begin") || strings.Contains(value, "rubric:end") {
+		if hasMarker(value) {
 			fail("%s: must not contain Rubric guidance markers", key)
 		}
 		if strings.HasPrefix(key, "features.") && hasControl(value) {
@@ -93,6 +93,9 @@ func Validate(cfg Config, mode string) error {
 		}
 	}
 	for i, ep := range cfg.EntryPoints {
+		if hasMarker(ep.Name) || hasMarker(ep.Dir) {
+			fail("entry_points[%d]: must not contain Rubric guidance markers", i)
+		}
 		if ep.Name == "" || hasControl(ep.Name) {
 			fail("entry_points[%d].name: required without control characters", i)
 		}
@@ -101,6 +104,9 @@ func Validate(cfg Config, mode string) error {
 		}
 	}
 	for i, cmd := range cfg.Commands {
+		if hasMarker(cmd.Name) || hasMarker(cmd.Dir) || slices.ContainsFunc(cmd.Argv, hasMarker) {
+			fail("commands[%d]: must not contain Rubric guidance markers", i)
+		}
 		if cmd.Name == "" || hasControl(cmd.Name) {
 			fail("commands[%d].name: required without control characters", i)
 		}
@@ -148,4 +154,8 @@ func checkDir(dir string) error {
 		return errors.New("must stay inside the module")
 	}
 	return nil
+}
+
+func hasMarker(s string) bool {
+	return strings.Contains(s, "rubric:begin") || strings.Contains(s, "rubric:end")
 }

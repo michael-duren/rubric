@@ -87,7 +87,7 @@ func Prepare(ctx context.Context, req Request) (plan.Plan, error) {
 		return plan.Plan{}, &InputError{Cause: err}
 	}
 	if mode == "new" {
-		if cfg.Evidence, err = projectedEvidence(cfg); err != nil {
+		if cfg.Evidence, err = projectedEvidence(root, cfg, req.Decisions); err != nil {
 			return plan.Plan{}, err
 		}
 	}
@@ -100,8 +100,14 @@ func Prepare(ctx context.Context, req Request) (plan.Plan, error) {
 		return plan.Plan{}, err
 	}
 	for i := range files {
-		if files[i].Path == "rubric.yaml" {
+		switch files[i].Path {
+		case "rubric.yaml":
 			files[i].Data = yaml
+		case "AGENTS.md":
+			text := string(files[i].Data)
+			if strings.Count(text, "<!-- rubric:begin -->") != 1 || strings.Count(text, "<!-- rubric:end -->") != 1 {
+				return plan.Plan{}, inputErr("rendered guidance contains Rubric markers from configuration values; remove them")
+			}
 		}
 	}
 	p, err := plan.Prepare(root, mode, cfg, files)
@@ -283,7 +289,7 @@ func reconcileCommands(saved, before, now []config.Command) []config.Command {
 	return out
 }
 
-func projectedEvidence(cfg config.Config) ([]config.Evidence, error) {
+func projectedEvidence(root string, cfg config.Config, decisions map[string]string) ([]config.Evidence, error) {
 	files, err := render.Files(cfg, "new")
 	if err != nil {
 		return nil, err
@@ -293,12 +299,20 @@ func projectedEvidence(cfg config.Config) ([]config.Evidence, error) {
 		return nil, err
 	}
 	defer func() { _ = os.RemoveAll(dir) }()
-	for _, f := range files {
-		path := filepath.Join(dir, filepath.FromSlash(f.Path))
-		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	existing, err := detectionInputs(root)
+	if err != nil {
+		return nil, err
+	}
+	for rel, data := range existing {
+		if err := writeProjected(dir, rel, data); err != nil {
 			return nil, err
 		}
-		if err := os.WriteFile(path, f.Data, 0o600); err != nil {
+	}
+	for _, f := range files {
+		if _, onDisk := existing[f.Path]; onDisk && decisions[f.Path] != plan.DecisionReplace {
+			continue
+		}
+		if err := writeProjected(dir, f.Path, f.Data); err != nil {
 			return nil, err
 		}
 	}
@@ -307,4 +321,46 @@ func projectedEvidence(cfg config.Config) ([]config.Evidence, error) {
 		return nil, err
 	}
 	return facts.Evidence, nil
+}
+
+func writeProjected(dir, rel string, data []byte) error {
+	path := filepath.Join(dir, filepath.FromSlash(rel))
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	return os.WriteFile(path, data, 0o600)
+}
+
+func detectionInputs(root string) (map[string][]byte, error) {
+	out := map[string][]byte{}
+	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+		if errors.Is(err, fs.ErrNotExist) && path == root {
+			return filepath.SkipAll
+		}
+		if err != nil {
+			return err
+		}
+		name := d.Name()
+		if d.IsDir() {
+			if path != root && (name == ".git" || name == "vendor" || name == "node_modules") {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if !d.Type().IsRegular() || !detectionInput(name) {
+			return nil
+		}
+		rel, err := filepath.Rel(root, path)
+		if err != nil {
+			return err
+		}
+		data, err := os.ReadFile(path)
+		out[filepath.ToSlash(rel)] = data
+		return err
+	})
+	return out, err
+}
+
+func detectionInput(name string) bool {
+	return strings.HasSuffix(name, ".go") || name == "go.mod" || name == "go.work" || strings.HasPrefix(name, "sqlc.")
 }
