@@ -17,7 +17,7 @@ else
 fi
 
 matches() {
-	$all || printf '%s\n' "$files" | grep -Eq "$1"
+	$all || grep -Eq "$1" <<<"$files"
 }
 
 go_paths='(\.go$|^go\.(mod|sum)$|^cmd/|^internal/|^\.golangci\.yml$|^docs/cli-init\.md$|^\.github/)'
