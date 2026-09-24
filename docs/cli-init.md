@@ -41,7 +41,7 @@ standard input or output is not a terminal, `--non-interactive` is set,
 | `--app-config` | `stdlib` (default), `viper` | Runtime settings in `internal/config`. Viper does not require Cobra. |
 | `--web` | `none`, `htmx` | Server-rendered UI in `internal/web`: templ views, htmx requests, and Alpine.js behavior. Requires `--http`. |
 | `--e2e` | `none`, `playwright` | Playwright browser tests in `e2e/` (build tag `e2e`). Requires `--web htmx`. |
-| `--skills` | boolean | Add `.agents/skills/rubric-*/SKILL.md`. |
+| `--skills` | boolean | Add `.agents/skills/rubric-*/SKILL.md` plus the vendored [pstack](https://github.com/cursor/plugins/tree/main/pstack) skills (`poteto-mode`, `tdd`, `create-verification-skill`, …) and their subagents in `.agents/agents/`, with an MIT notice in `.agents/skills/THIRD_PARTY_NOTICES.md`. |
 | `--lint` | boolean | Add `.golangci.yml`, the comment analyzer in `.rubric/style`, and a `lint` check. |
 | `--makefile` | boolean | Add a `Makefile` whose targets call `.rubric/check.sh`. |
 | `--actions` | boolean | Add `.github/workflows/ci.yml`. It uses Make only when the Makefile is enabled. |

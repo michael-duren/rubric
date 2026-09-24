@@ -230,6 +230,64 @@ func TestToolingPlaywrightWorkflow(t *testing.T) {
 	}
 }
 
+func TestToolingPstackSkills(t *testing.T) {
+	_, off := renderTooling(t, "new", config.Defaults().Features, config.Tooling{})
+	if _, ok := find(off, ".agents/skills/poteto-mode/SKILL.md"); ok {
+		t.Fatal("pstack installed without --skills")
+	}
+	_, files := renderTooling(t, "new", config.Defaults().Features, config.Tooling{Skills: true})
+	for _, path := range []string{
+		".agents/skills/poteto-mode/SKILL.md", ".agents/skills/create-verification-skill/SKILL.md",
+		".agents/skills/maintain-verification-skill/SKILL.md", ".agents/skills/tdd/SKILL.md",
+		".agents/skills/THIRD_PARTY_NOTICES.md", ".agents/agents/comment-sicko.md", ".agents/agents/poteto-agent.md",
+	} {
+		testproject.File(t, files, path)
+	}
+	for _, f := range files {
+		for _, skipped := range []string{"typescript-best-practices", "make-bot-ui", "setup-pstack", ".test.ts"} {
+			if strings.Contains(f.Path, skipped) {
+				t.Fatalf("irrelevant pstack file generated: %s", f.Path)
+			}
+		}
+		if f.Path != ".agents/skills/THIRD_PARTY_NOTICES.md" && strings.Contains(string(f.Data), ".cursor/skills/") {
+			t.Fatalf("%s still points at .cursor/skills", f.Path)
+		}
+	}
+	script, _ := find(files, ".agents/skills/show-me-your-work/scripts/log.sh")
+	if script.Mode != 0o755 || script.Kind != render.KindManaged {
+		t.Fatalf("log.sh mode %v kind %q", script.Mode, script.Kind)
+	}
+	notice := string(testproject.File(t, files, ".agents/skills/THIRD_PARTY_NOTICES.md"))
+	if !strings.Contains(notice, "Copyright (c) 2026 Lauren Tan") || !strings.Contains(notice, "MIT License") {
+		t.Fatal("MIT attribution missing")
+	}
+	agents := string(testproject.File(t, files, "AGENTS.md"))
+	if !strings.Contains(agents, "poteto-mode") || !strings.Contains(agents, "create-verification-skill") {
+		t.Fatalf("guidance does not point agents at pstack:\n%s", agents)
+	}
+}
+
+func TestVendoredPstackMatchesRepository(t *testing.T) {
+	_, files := renderTooling(t, "new", config.Defaults().Features, config.Tooling{Skills: true})
+	count := 0
+	for _, f := range files {
+		if !strings.HasPrefix(f.Path, ".agents/") || strings.Contains(f.Path, "/rubric-") {
+			continue
+		}
+		repo, err := os.ReadFile(filepath.Join("..", "..", filepath.FromSlash(f.Path)))
+		if err != nil {
+			t.Fatalf("%s: %v", f.Path, err)
+		}
+		if !bytes.Equal(repo, f.Data) {
+			t.Fatalf("%s differs between the repository and the embedded copy; rerun scripts/vendor-pstack.sh", f.Path)
+		}
+		count++
+	}
+	if count < 100 {
+		t.Fatalf("only %d vendored files compared", count)
+	}
+}
+
 func TestToolingSkills(t *testing.T) {
 	for _, lint := range []bool{false, true} {
 		_, files := renderTooling(t, "new", features(func(f *config.Features) { f.CLI = "flag" }), config.Tooling{Skills: true, Lint: lint})
