@@ -176,7 +176,7 @@ and create `go.sum` as dependencies are introduced.
 mode. Decode requires one YAML document, preserves the syntax tree, rejects
 duplicate/unknown keys and cycles, and retains the presence of explicit values.
 
-- [ ] **Step 1: Add a failing override test and a commented-YAML round-trip test.**
+- [x] **Step 1: Add a failing override test and a commented-YAML round-trip test.**
 
 ```go
 func TestExplicitDisabledValuesWin(t *testing.T) {
@@ -202,8 +202,8 @@ they lack a public hostname, while invalid import characters still fail.
 The round-trip test must compare preserved head/line/foot comments after changing
 `features.http`, and assert no absolute destination path is serialized.
 
-- [ ] **Step 2: Run `go test ./internal/config -run 'TestExplicit|TestYAML|TestValidate' -v`; expect missing production APIs.**
-- [ ] **Step 3: Implement field-presence merging and typed validation.**
+- [x] **Step 2: Run `go test ./internal/config -run 'TestExplicit|TestYAML|TestValidate' -v`; expect missing production APIs.**
+- [x] **Step 3: Implement field-presence merging and typed validation.**
 
 ```go
 func applyBool(dst *bool, values Patch, key string) error {
@@ -238,8 +238,8 @@ Install only this task's dependencies:
 go get go.yaml.in/yaml/v3@v3.0.5 golang.org/x/mod@v0.41.0
 ```
 
-- [ ] **Step 4: Run `go test ./internal/config -v`; all merge, schema, and round-trip tests must pass.**
-- [ ] **Step 5: Commit with `git add go.mod go.sum internal/config` and `git commit -m "feat: add rubric configuration model"`.**
+- [x] **Step 4: Run `go test ./internal/config -v`; all merge, schema, and round-trip tests must pass.**
+- [x] **Step 5: Commit with `git add go.mod go.sum internal/config` and `git commit -m "feat: add rubric configuration model"`.**
 
 ## Task 2: Static detection for existing modules
 
@@ -251,7 +251,7 @@ Produces `Inspect(string) (Facts, error)`, where `Facts` has `Module string`,
 `Go string`, `Empty bool`, `Workspace bool`, `NestedModules []string`,
 `EntryPoints []config.EntryPoint`, and `Evidence []config.Evidence`.
 
-- [ ] **Step 1: Add a fixture with an unused Chi dependency and a real stdlib server.**
+- [x] **Step 1: Add a fixture with an unused Chi dependency and a real stdlib server.**
 
 ```go
 func TestDependencyIsNotAnActiveComponent(t *testing.T) {
@@ -275,8 +275,8 @@ and a deleted entry point on rerun. Test an HTTP client-only source file and a
 router imported only by tests; neither should prove the project runs a server.
 Do not run `go list` for discovery.
 
-- [ ] **Step 2: Run `go test ./internal/detect -v`; expect missing detector APIs.**
-- [ ] **Step 3: Parse module and Go source without executing project code.**
+- [x] **Step 2: Run `go test ./internal/detect -v`; expect missing detector APIs.**
+- [x] **Step 3: Parse module and Go source without executing project code.**
 
 ```go
 func importsIn(filename string, src []byte) ([]string, error) {
@@ -303,8 +303,8 @@ even if descendants contain independent modules; never scan those descendants
 as part of the selected project. Distinguish absent, empty, ambiguous nonempty,
 and valid existing-module targets in `initialize.Prepare` (Task 7).
 
-- [ ] **Step 4: Run `go test ./internal/detect ./internal/config`; fixtures must remain byte-identical after inspection.**
-- [ ] **Step 5: Commit with `git add internal/detect` and `git commit -m "feat: detect existing Go project facts"`.**
+- [x] **Step 4: Run `go test ./internal/detect ./internal/config`; fixtures must remain byte-identical after inspection.**
+- [x] **Step 5: Commit with `git add internal/detect` and `git commit -m "feat: detect existing Go project facts"`.**
 
 ## Task 3: Pinned catalog, minimal rendering, and generated-project test helpers
 
@@ -321,7 +321,7 @@ Test helpers are `testproject.Config() config.Config`,
 `Write(t *testing.T, files []render.File) string`, and
 `Go(t *testing.T, dir string, args ...string) string` (combined output; fatal on error).
 
-- [ ] **Step 1: Test the two empty starters and literal module rendering.**
+- [x] **Step 1: Test the two empty starters and literal module rendering.**
 
 ```go
 func TestMinimalStarters(t *testing.T) {
@@ -347,8 +347,8 @@ paths before using them in Go imports; quote data using `strconv.Quote`, not raw
 concatenation. Test descriptions containing `$()`, backticks, quotes, and Unicode
 as literal documentation data. Test all 180 unique catalog combinations.
 
-- [ ] **Step 2: Run `go test ./internal/catalog ./internal/render ./internal/testproject`; expect missing APIs.**
-- [ ] **Step 3: Embed templates and format generated Go before returning bytes.**
+- [x] **Step 2: Run `go test ./internal/catalog ./internal/render ./internal/testproject`; expect missing APIs.**
+- [x] **Step 3: Embed templates and format generated Go before returning bytes.**
 
 ```go
 func renderSource(tmpl *template.Template, value any) ([]byte, error) {
@@ -367,8 +367,8 @@ and never builds shell command strings. Add helper tests for literal argument
 passing and temporary-directory cleanup. `testproject.Config` returns defaults
 with module `example.com/demo` and display name `demo`.
 
-- [ ] **Step 4: Run those package tests; build the runnable starter and inspect module-only output for absence of application files.**
-- [ ] **Step 5: Commit with `git add internal/catalog internal/render internal/testproject` and `git commit -m "feat: render minimal Go starters"`.**
+- [x] **Step 4: Run those package tests; build the runnable starter and inspect module-only output for absence of application files.**
+- [x] **Step 5: Commit with `git add internal/catalog internal/render internal/testproject` and `git commit -m "feat: render minimal Go starters"`.**
 
 ## Task 4: Command inventory and accurate project guidance
 
@@ -381,7 +381,7 @@ with module `example.com/demo` and display name `demo`.
 `rubric.yaml`, README for new projects, the AGENTS managed-section content, and
 `.rubric/style.md`. The current YAML document is applied by the service in Task 7.
 
-- [ ] **Step 1: Test that a module-only project does not advertise imaginary commands.**
+- [x] **Step 1: Test that a module-only project does not advertise imaginary commands.**
 
 ```go
 func TestModuleOnlyGuidanceHasNoRunCommand(t *testing.T) {
@@ -402,8 +402,8 @@ Add cases for each executable path, existing custom commands, missing commands,
 unselected tooling, all three style links, the two-line/150-character rule, and
 the absence of unfinished `rubric validate` or performance instructions.
 
-- [ ] **Step 2: Run `go test ./internal/render -run 'TestGuidance|TestModuleOnly' -v`; new assertions must fail first.**
-- [ ] **Step 3: Derive commands once and render every artifact from that inventory.**
+- [x] **Step 2: Run `go test ./internal/render -run 'TestGuidance|TestModuleOnly' -v`; new assertions must fail first.**
+- [x] **Step 3: Derive commands once and render every artifact from that inventory.**
 
 ```go
 func runCommand(name, dir string) config.Command {
@@ -420,8 +420,8 @@ from an unexecuted README shell snippet. AGENTS markers are exactly
 `<!-- rubric:begin -->` and `<!-- rubric:end -->`; return only the managed section
 from `Instructions`, leaving placement and preservation to Task 5.
 
-- [ ] **Step 4: Run `go test ./internal/render`; assert instructions agree with rendered paths and selected features.**
-- [ ] **Step 5: Commit with `git add internal/render` and `git commit -m "feat: generate project-aware agent guidance"`.**
+- [x] **Step 4: Run `go test ./internal/render`; assert instructions agree with rendered paths and selected features.**
+- [x] **Step 5: Commit with `git add internal/render` and `git commit -m "feat: generate project-aware agent guidance"`.**
 
 ## Task 5: Preview plans, ownership, and conflicts
 
@@ -434,7 +434,7 @@ and `Conflicts(Plan) []Action`. Decision values are `replace` or `skip`; mandato
 config/guidance cannot be skipped. `Manifest` contains `Version int` and
 `Files map[string]Stamp`; `Stamp` has `Hash string` and `Kind string`.
 
-- [ ] **Step 1: Test unmanaged file preservation and marker parsing.**
+- [x] **Step 1: Test unmanaged file preservation and marker parsing.**
 
 ```go
 func TestExistingUserFileIsAConflict(t *testing.T) {
@@ -456,8 +456,8 @@ outside markers, edited managed sections, absent manifests, edited manifests,
 normal `rubric.yaml` edits, obsolete paths, concurrent changes, and unchanged
 reruns. Reject corrupt manifests rather than adopting their contents silently.
 
-- [ ] **Step 2: Run `go test ./internal/plan -v`; expect missing planning APIs.**
-- [ ] **Step 3: Hash content and classify changes without writing.**
+- [x] **Step 2: Run `go test ./internal/plan -v`; expect missing planning APIs.**
+- [x] **Step 3: Hash content and classify changes without writing.**
 
 ```go
 func digest(data []byte) string {
@@ -475,8 +475,8 @@ Decisions apply only to the reviewed bytes; if a skip disables an optional
 artifact, the service revises tooling selections and recomputes commands and
 guidance before producing a new preview. Preserve obsolete files and list them.
 
-- [ ] **Step 4: Run `go test ./internal/plan`; compare directory snapshots before/after every preview-only test.**
-- [ ] **Step 5: Commit with `git add internal/plan` and `git commit -m "feat: plan file ownership and conflicts"`.**
+- [x] **Step 4: Run `go test ./internal/plan`; compare directory snapshots before/after every preview-only test.**
+- [x] **Step 5: Commit with `git add internal/plan` and `git commit -m "feat: plan file ownership and conflicts"`.**
 
 ## Task 6: Safe application and rollback
 
@@ -491,7 +491,7 @@ Keep injectable filesystem operations private to package tests, via `applyWithOp
 its arguments are the public Apply arguments plus an `operations` struct holding
 read, stat, write, rename, remove, mkdir, and chmod functions.
 
-- [ ] **Step 1: Pin preflight conflict and cancellation behavior.**
+- [x] **Step 1: Pin preflight conflict and cancellation behavior.**
 
 ```go
 func TestCancelledApplyCreatesNothing(t *testing.T) {
@@ -512,8 +512,8 @@ survive, and rollback refuses to overwrite a concurrent user edit. Test symlink
 parents and targets, `../` paths, an absolute file path, literal special characters
 in destination names, permissions, a stale manifest, and cancellation mid-apply.
 
-- [ ] **Step 2: Run `go test ./internal/write -v`; expect missing writer APIs.**
-- [ ] **Step 3: Stage, recheck, replace, and journal each file.**
+- [x] **Step 2: Run `go test ./internal/write -v`; expect missing writer APIs.**
+- [x] **Step 3: Stage, recheck, replace, and journal each file.**
 
 ```go
 func unchanged(before plan.Snapshot, current []byte, exists bool) bool {
@@ -531,8 +531,8 @@ this invocation's replacement. Roll back in reverse order only when the current
 content still matches that replacement. Preserve ambiguous concurrent changes
 and return their paths as unrecovered. Clean staged files on all exit paths.
 
-- [ ] **Step 4: Run `go test -race ./internal/write ./internal/plan`; all failure-injection cases must pass.**
-- [ ] **Step 5: Commit with `git add internal/write` and `git commit -m "feat: apply initialization plans with recovery"`.**
+- [x] **Step 4: Run `go test -race ./internal/write ./internal/plan`; all failure-injection cases must pass.**
+- [x] **Step 5: Commit with `git add internal/write` and `git commit -m "feat: apply initialization plans with recovery"`.**
 
 ## Task 7: Shared initialization service and unattended CLI
 
@@ -552,7 +552,7 @@ CLI produces `Run(context.Context, []string, Streams) int`; `Streams` contains
 `Unwrap() error`. Those errors and `write.ConflictError` map to status 2; context cancellation maps
 to 130; other errors map to 1. Success/dry-run without conflicts maps to 0.
 
-- [ ] **Step 1: Test a fully unattended dry run into a nonexistent directory.**
+- [x] **Step 1: Test a fully unattended dry run into a nonexistent directory.**
 
 ```go
 func TestJSONDryRunDoesNotWrite(t *testing.T) {
@@ -571,8 +571,8 @@ missing module, unknown schema, explicit `--lint=false`, dry-run conflicts,
 JSON stderr separation, operational failure, SIGINT, existing project with
 unknown libraries, nonempty non-module targets, and rerun preservation.
 
-- [ ] **Step 2: Run `go test ./internal/initialize ./internal/cli`; expect missing service/CLI APIs.**
-- [ ] **Step 3: Implement the service pipeline and thin process wrapper.**
+- [x] **Step 2: Run `go test ./internal/initialize ./internal/cli`; expect missing service/CLI APIs.**
+- [x] **Step 3: Implement the service pipeline and thin process wrapper.**
 
 ```go
 func main() {
@@ -611,8 +611,8 @@ same complete-input service rather than claiming the interactive product is done
 JSON contains mode/config/actions/conflicts/diagnostics/next commands, exactly
 once; do not emit raw rendered file contents or environment values by default.
 
-- [ ] **Step 4: Run `go test ./internal/config ./internal/detect ./internal/render ./internal/plan ./internal/write ./internal/initialize ./internal/cli` and `go build ./cmd/rubric`.**
-- [ ] **Step 5: Commit with `git add cmd internal/initialize internal/cli go.mod go.sum` and `git commit -m "feat: add unattended rubric init"`.**
+- [x] **Step 4: Run `go test ./internal/config ./internal/detect ./internal/render ./internal/plan ./internal/write ./internal/initialize ./internal/cli` and `go build ./cmd/rubric`.**
+- [x] **Step 5: Commit with `git add cmd internal/initialize internal/cli go.mod go.sum` and `git commit -m "feat: add unattended rubric init"`.**
 
 ## Task 8: HTTP templates with handler and lifecycle tests
 
@@ -628,7 +628,7 @@ The optional function is a readiness check; nil means no external dependency.
 Output files are `internal/httpserver/routes.go`, `server.go`, `server_test.go`,
 and `cmd/server/main.go`. Both router choices have the same API and tests.
 
-- [ ] **Step 1: Add this generated test and a render test that runs it for both routers.**
+- [x] **Step 1: Add this generated test and a render test that runs it for both routers.**
 
 ```go
 func TestHealth(t *testing.T) {
@@ -646,8 +646,8 @@ failure through the supplied listener, and graceful shutdown tests. The render
 test uses `testproject.Write`, `go mod tidy`, `go build ./...`, and `go test ./...`.
 Assert the generated tests exist even with all tooling disabled.
 
-- [ ] **Step 2: Run `go test ./internal/render -run TestGeneratedHTTP -v`; expect absent templates/output.**
-- [ ] **Step 3: Implement shared handlers and router-specific registration.**
+- [x] **Step 2: Run `go test ./internal/render -run TestGeneratedHTTP -v`; expect absent templates/output.**
+- [x] **Step 3: Implement shared handlers and router-specific registration.**
 
 ```go
 func health(w http.ResponseWriter, r *http.Request) {
@@ -664,8 +664,8 @@ and treats normal `http.ErrServerClosed` as success. Tests exercise listener
 errors and shutdown without leaking goroutines. Keep main limited to signal
 context, listener construction, startup, and exit; Task 11 centralizes settings.
 
-- [ ] **Step 4: Run `go test ./internal/render -run TestGeneratedHTTP -v`; both generated projects must build and pass their shipped tests.**
-- [ ] **Step 5: Commit with `git add internal/render` and `git commit -m "feat: generate tested HTTP services"`.**
+- [x] **Step 4: Run `go test ./internal/render -run TestGeneratedHTTP -v`; both generated projects must build and pass their shipped tests.**
+- [x] **Step 5: Commit with `git add internal/render` and `git commit -m "feat: generate tested HTTP services"`.**
 
 ## Task 9: Standard-flag and Cobra CLI templates
 
@@ -679,7 +679,7 @@ func(context.Context) error) error`; output `internal/cli/command.go`,
 `command_test.go`, and `cmd/cli/main.go`. Both choices implement a `status`
 command and expose help without requiring a database.
 
-- [ ] **Step 1: Ship the same command behavior test with both implementations.**
+- [x] **Step 1: Ship the same command behavior test with both implementations.**
 
 ```go
 func TestStatus(t *testing.T) {
@@ -699,8 +699,8 @@ func TestStatus(t *testing.T) {
 Add invalid flags, unknown commands, help, canceled contexts, readiness failure,
 and output-writer failure. Assert two concurrent Run calls do not share state.
 
-- [ ] **Step 2: Run `go test ./internal/render -run TestGeneratedCLI -v`; expect missing generated CLI files.**
-- [ ] **Step 3: Use fresh flag sets or Cobra commands on every Run call.**
+- [x] **Step 2: Run `go test ./internal/render -run TestGeneratedCLI -v`; expect missing generated CLI files.**
+- [x] **Step 3: Use fresh flag sets or Cobra commands on every Run call.**
 
 ```go
 func status(ctx context.Context, out io.Writer, check func(context.Context) error) error {
@@ -718,8 +718,8 @@ instead of terminating inside the package; set its context/output explicitly.
 Main forwards arguments and handles the final exit. Shared application packages
 must not import either generated `main` package.
 
-- [ ] **Step 4: Run `go test ./internal/render -run TestGeneratedCLI -v`; compile and run each generated suite, including HTTP+CLI compositions.**
-- [ ] **Step 5: Commit with `git add internal/render` and `git commit -m "feat: generate tested CLI applications"`.**
+- [x] **Step 4: Run `go test ./internal/render -run TestGeneratedCLI -v`; compile and run each generated suite, including HTTP+CLI compositions.**
+- [x] **Step 5: Commit with `git add internal/render` and `git commit -m "feat: generate tested CLI applications"`.**
 
 ## Task 10: Generated Bubble Tea application
 
@@ -732,7 +732,7 @@ must not import either generated `main` package.
 `View() tea.View`. Output `internal/tui/model.go`, `model_test.go`, and
 `cmd/tui/main.go`. Use `charm.land/bubbletea/v2`, not v1 import paths or view types.
 
-- [ ] **Step 1: Ship a terminal-independent quit test.**
+- [x] **Step 1: Ship a terminal-independent quit test.**
 
 ```go
 func TestQuit(t *testing.T) {
@@ -747,8 +747,8 @@ Test initial content, window resize including zero dimensions, readiness success
 and failure messages, unrelated messages, and context cancellation. Run returned
 commands directly in tests instead of opening a real terminal.
 
-- [ ] **Step 2: Run `go test ./internal/render -run TestGeneratedTUI -v`; expect missing generated model.**
-- [ ] **Step 3: Keep I/O in commands and state changes in Update.**
+- [x] **Step 2: Run `go test ./internal/render -run TestGeneratedTUI -v`; expect missing generated model.**
+- [x] **Step 3: Keep I/O in commands and state changes in Update.**
 
 ```go
 func (m Model) View() tea.View {
@@ -762,8 +762,8 @@ an unexported `checkedMsg{err error}` when a check is supplied. Main uses
 `tea.NewProgram(model, tea.WithContext(ctx))` and handles its result. Generated
 TUI tests run without a database service and remain present without CI/Makefile.
 
-- [ ] **Step 4: Run `go test ./internal/render -run TestGeneratedTUI -v`; also build a combined HTTP+CLI+TUI project.**
-- [ ] **Step 5: Commit with `git add internal/render` and `git commit -m "feat: generate tested Bubble Tea applications"`.**
+- [x] **Step 4: Run `go test ./internal/render -run TestGeneratedTUI -v`; also build a combined HTTP+CLI+TUI project.**
+- [x] **Step 5: Commit with `git add internal/render` and `git commit -m "feat: generate tested Bubble Tea applications"`.**
 
 ## Task 11: Standard-library and Viper runtime configuration
 
@@ -782,7 +782,7 @@ Generate this package for named executables, database support, or explicit Viper
 do not add it to either otherwise-empty starter. Runtime config belongs to the
 application; Rubric's `rubric.yaml` is not passed to Viper.
 
-- [ ] **Step 1: Ship an environment-override test isolated from the user's environment.**
+- [x] **Step 1: Ship an environment-override test isolated from the user's environment.**
 
 ```go
 func TestEnvironmentOverridesDefaults(t *testing.T) {
@@ -805,8 +805,8 @@ lookup also supplies `APP_DATABASE_URL` as
 `postgres://postgres@127.0.0.1:5432/rubric_test?sslmode=disable`; the test validates
 configuration without making a connection. Missing-URL behavior has a separate test.
 
-- [ ] **Step 2: Run `go test ./internal/render -run TestGeneratedConfig -v`; new settings assertions must fail first.**
-- [ ] **Step 3: Implement local configuration instances and shared validation.**
+- [x] **Step 2: Run `go test ./internal/render -run TestGeneratedConfig -v`; new settings assertions must fail first.**
+- [x] **Step 3: Implement local configuration instances and shared validation.**
 
 ```go
 v := viper.New()
@@ -827,8 +827,8 @@ values and errors on a nonempty file path. Main supplies `APP_CONFIG_FILE` and
 settings relevant to selected components. HTTP consumes the configured address;
 Task 12 wires the database URL into all selected application entry points.
 
-- [ ] **Step 4: Run `go test ./internal/render -run 'TestGeneratedConfig|TestGeneratedHTTP|TestGeneratedCLI|TestGeneratedTUI' -v`.**
-- [ ] **Step 5: Commit with `git add internal/render` and `git commit -m "feat: generate optional Viper configuration"`.**
+- [x] **Step 4: Run `go test ./internal/render -run 'TestGeneratedConfig|TestGeneratedHTTP|TestGeneratedCLI|TestGeneratedTUI' -v`.**
+- [x] **Step 5: Commit with `git add internal/render` and `git commit -m "feat: generate optional Viper configuration"`.**
 
 ## Task 12: SQLite and PostgreSQL with handwritten SQL
 
@@ -852,7 +852,7 @@ Library-only guidance explains the consumer's driver registration requirement.
 Update the root runnable main template as well when supporting libraries are
 selected without named executable components.
 
-- [ ] **Step 1: Ship a real temporary-SQLite behavior test.**
+- [x] **Step 1: Ship a real temporary-SQLite behavior test.**
 
 ```go
 func TestRoundTrip(t *testing.T) {
@@ -874,8 +874,8 @@ PostgreSQL integration tests use `//go:build integration` and `TEST_DATABASE_URL
 when explicitly enabled, a missing URL fails instead of silently skipping.
 Use a transaction and per-test schema to keep real database tests isolated.
 
-- [ ] **Step 2: Run `go test ./internal/render -run TestGeneratedDatabase -v`; expect missing store output.**
-- [ ] **Step 3: Implement a small tested key/value store.**
+- [x] **Step 2: Run `go test ./internal/render -run TestGeneratedDatabase -v`; expect missing store output.**
+- [x] **Step 3: Implement a small tested key/value store.**
 
 ```go
 func (s *Store) Get(ctx context.Context, key string) (string, error) {
@@ -897,8 +897,8 @@ Generated main wires `store.Ping` into each selected component's readiness check
 and closes its pool, handling close errors. HTTP health is independent of DB;
 readiness reflects DB availability. Database-only projects still ship package tests.
 
-- [ ] **Step 4: Run `go test ./internal/render -run TestGeneratedDatabase -v`; build/test both backends without external services, then execute PostgreSQL integration cases against a controlled test service.**
-- [ ] **Step 5: Commit with `git add internal/render` and `git commit -m "feat: generate tested SQL database support"`.**
+- [x] **Step 4: Run `go test ./internal/render -run TestGeneratedDatabase -v`; build/test both backends without external services, then execute PostgreSQL integration cases against a controlled test service.**
+- [x] **Step 5: Commit with `git add internal/render` and `git commit -m "feat: generate tested SQL database support"`.**
 
 ## Task 13: sqlc query generation and reproducibility
 
@@ -915,7 +915,7 @@ modify `internal/render/database.go`, `internal/render/render.go`, and `internal
 The sqlc `sql_package` is `database/sql` for both backends, using the driver
 registrations from Task 12. Tests cover both the facade and query package.
 
-- [ ] **Step 1: Add a render test that regenerates sqlc output and compares bytes.**
+- [x] **Step 1: Add a render test that regenerates sqlc output and compares bytes.**
 
 ```go
 func TestSQLCRegenerationIsStable(t *testing.T) {
@@ -941,8 +941,8 @@ Ship tests for Get/Put, construction, `WithTx`, and query failures; generated co
 is not exempt from tests. SQLite runs against a temporary database; PostgreSQL
 unit tests use sqlmock, with real integration tests when explicitly enabled.
 
-- [ ] **Step 2: Run `go test ./internal/render -run TestSQLC -v`; expect missing sqlc assets.**
-- [ ] **Step 3: Generate and bundle sqlc output during Rubric development, never during init.**
+- [x] **Step 2: Run `go test ./internal/render -run TestSQLC -v`; expect missing sqlc assets.**
+- [x] **Step 3: Generate and bundle sqlc output during Rubric development, never during init.**
 
 ```sql
 -- name: Get :one
@@ -961,8 +961,8 @@ files that claim to be sqlc output. Generated comment exceptions apply only to
 sqlc-owned files; authored facade/test templates retain Rubric style rules.
 Add `generate` to available commands only for sqlc projects.
 
-- [ ] **Step 4: Run `go test ./internal/render -run 'TestSQLC|TestGeneratedDatabase' -v`; compare the full query directory before/after regeneration and run all shipped tests.**
-- [ ] **Step 5: Commit with `git add internal/render` and `git commit -m "feat: generate tested sqlc projects"`.**
+- [x] **Step 4: Run `go test ./internal/render -run 'TestSQLC|TestGeneratedDatabase' -v`; compare the full query directory before/after regeneration and run all shipped tests.**
+- [x] **Step 5: Commit with `git add internal/render` and `git commit -m "feat: generate tested sqlc projects"`.**
 
 ## Task 14: Mechanical style rules and a repo-local analyzer
 
@@ -976,7 +976,7 @@ create `internal/render/style.go` and `internal/render/style_test.go`.
 `Data []byte`; `Sources() ([]Source, error)` exports the analyzer, thin main, and
 tests for `.rubric/style/`. The style package does not import the renderer.
 
-- [ ] **Step 1: Add boundary tests for comments and documentation.**
+- [x] **Step 1: Add boundary tests for comments and documentation.**
 
 ```go
 func TestDocCommentLimit(t *testing.T) {
@@ -997,8 +997,8 @@ function-body/trailing comments, valid Go directives/build tags, `_test.go`
 test entry points, strings containing comment markers, generated sqlc headers,
 malformed Go, unreadable files, and nested-module/vendor exclusions.
 
-- [ ] **Step 2: Run `go test ./internal/style -v`; expect missing analyzer APIs.**
-- [ ] **Step 3: Implement a deterministic AST analyzer using only the standard library.**
+- [x] **Step 2: Run `go test ./internal/style -v`; expect missing analyzer APIs.**
+- [x] **Step 3: Implement a deterministic AST analyzer using only the standard library.**
 
 ```go
 func commentLineTooLong(line string) bool {
@@ -1029,8 +1029,8 @@ standalone tests without importing Rubric internals. Do not bundle the embedding
 implementation or repository-specific tests. `TestRepositoryStyle` scans Rubric's
 own production source through AnalyzeTree and fails on policy violations.
 
-- [ ] **Step 4: Run `go test ./internal/style ./internal/render -run 'TestDoc|TestStyle|TestSources|TestComment|TestGeneratedAnalyzer' -v`; run the full copied suite with `go test ./.rubric/style` inside generated fixtures.**
-- [ ] **Step 5: Commit with `git add internal/style internal/render` and `git commit -m "feat: generate enforceable Go style tooling"`.**
+- [x] **Step 4: Run `go test ./internal/style ./internal/render -run 'TestDoc|TestStyle|TestSources|TestComment|TestGeneratedAnalyzer' -v`; run the full copied suite with `go test ./.rubric/style` inside generated fixtures.**
+- [x] **Step 5: Commit with `git add internal/style internal/render` and `git commit -m "feat: generate enforceable Go style tooling"`.**
 
 ## Task 15: Independent Makefile, CI, linting, and skill options
 
@@ -1048,7 +1048,7 @@ arguments; a separate `QuoteMake(string) string` doubles `$` before the value
 enters a Make recipe. Shell text is a serialization boundary, never stored as an
 unparsed command in `rubric.yaml`.
 
-- [ ] **Step 1: Test all 16 tooling-toggle combinations and literal arguments.**
+- [x] **Step 1: Test all 16 tooling-toggle combinations and literal arguments.**
 
 ```go
 func TestShellQuotePreservesLiteralText(t *testing.T) {
@@ -1067,8 +1067,8 @@ Assert no implicit toggles, no references to absent targets, no commands for
 deferred Rubric features, and no credentials copied from the process environment.
 Run shell syntax checks and parse workflow YAML in tests, not just string-match it.
 
-- [ ] **Step 2: Run `go test ./internal/render -run 'TestTooling|TestShellQuote|TestEmptyChecks' -v`; new artifacts must fail their assertions first.**
-- [ ] **Step 3: Render shared check scripts and thin Make/Actions wrappers.**
+- [x] **Step 2: Run `go test ./internal/render -run 'TestTooling|TestShellQuote|TestEmptyChecks' -v`; new artifacts must fail their assertions first.**
+- [x] **Step 3: Render shared check scripts and thin Make/Actions wrappers.**
 
 ```go
 func QuotePOSIX(value string) string {
@@ -1120,8 +1120,8 @@ test/style rules. Apply the writing-skills/skill-creator instructions when creat
 these skill templates during execution. Style advice can exist without linting;
 do not falsely say lint has been installed. Include all three source-guide links.
 
-- [ ] **Step 4: Run `go test ./internal/render -run 'TestTooling|TestShellQuote|TestEmptyChecks|TestGeneratedAnalyzer' -v`; execute representative generated checks with and without Make installed.**
-- [ ] **Step 5: Commit with `git add internal/render` and `git commit -m "feat: generate optional project tooling"`.**
+- [x] **Step 4: Run `go test ./internal/render -run 'TestTooling|TestShellQuote|TestEmptyChecks|TestGeneratedAnalyzer' -v`; execute representative generated checks with and without Make installed.**
+- [x] **Step 5: Commit with `git add internal/render` and `git commit -m "feat: generate optional project tooling"`.**
 
 ## Task 16: Bubble Tea wizard over the shared service
 
@@ -1136,7 +1136,7 @@ and `Apply func(context.Context, initialize.Request, plan.Plan) (write.Result, e
 `Outcome` contains `Request initialize.Request`, `Plan plan.Plan`, `Result write.Result`,
 and `Cancelled bool`. `Model` uses the Bubble Tea v2 methods from Task 10.
 
-- [ ] **Step 1: Test that cancellation cannot invoke apply.**
+- [x] **Step 1: Test that cancellation cannot invoke apply.**
 
 ```go
 func TestCancelNeverApplies(t *testing.T) {
@@ -1162,8 +1162,8 @@ partial field edits, duplicate key events while preparing, stale async responses
 per-file replace/skip decisions, apply errors, and cancellation during apply.
 Drive complete flows and compare their resolved config/files to unattended mode.
 
-- [ ] **Step 2: Run `go test ./internal/wizard ./internal/cli -v`; expect missing wizard APIs and interactive routing.**
-- [ ] **Step 3: Implement explicit stages and asynchronous engine commands.**
+- [x] **Step 2: Run `go test ./internal/wizard ./internal/cli -v`; expect missing wizard APIs and interactive routing.**
+- [x] **Step 3: Implement explicit stages and asynchronous engine commands.**
 
 ```go
 type stage int
@@ -1200,8 +1200,8 @@ Bubble Tea's context and I/O options; restore terminal state after every result.
 Display progress and actionable recovery paths, and never claim that merely
 generating a project has run its application tests or downloaded dependencies.
 
-- [ ] **Step 4: Run `go test -race ./internal/wizard ./internal/cli ./internal/initialize`; compare interactive/unattended outcomes.**
-- [ ] **Step 5: Commit with `git add internal/wizard internal/cli go.mod go.sum` and `git commit -m "feat: add Bubble Tea initialization wizard"`.**
+- [x] **Step 4: Run `go test -race ./internal/wizard ./internal/cli ./internal/initialize`; compare interactive/unattended outcomes.**
+- [x] **Step 5: Commit with `git add internal/wizard internal/cli go.mod go.sum` and `git commit -m "feat: add Bubble Tea initialization wizard"`.**
 
 ## Task 17: Full acceptance matrix, CI, coverage, and user documentation
 
@@ -1217,7 +1217,7 @@ The latter checks source files against a coverage profile, ignoring only
 `main.go` and path segments named `cmd`; it reports uncovered functions/branches
 for review without inventing a percentage threshold.
 
-- [ ] **Step 1: Add a generated-test inventory assertion and matrix harness.**
+- [x] **Step 1: Add a generated-test inventory assertion and matrix harness.**
 
 ```go
 func TestCatalogMatrixSize(t *testing.T) {
@@ -1249,8 +1249,8 @@ exercise their values through package tests. Generated sqlc files are not blanke
 excluded. Existing-project fixtures assert preservation of all original source,
 tests, module files, user instructions, and conflicting configuration.
 
-- [ ] **Step 2: Run `go test ./internal/acceptance -run 'TestCatalogMatrixSize|TestGeneratedTestInventory' -v`; add deliberately missing generated tests to fixture expectations and observe the gate reject them before fixing the templates.**
-- [ ] **Step 3: Implement matrix execution, coverage checks, and terminal integration.**
+- [x] **Step 2: Run `go test ./internal/acceptance -run 'TestCatalogMatrixSize|TestGeneratedTestInventory' -v`; add deliberately missing generated tests to fixture expectations and observe the gate reject them before fixing the templates.**
+- [x] **Step 3: Implement matrix execution, coverage checks, and terminal integration.**
 
 ```go
 func runProjectChecks(t *testing.T, root string) {
@@ -1297,7 +1297,7 @@ test commands, PostgreSQL integration setup, conflicts, ownership, and recovery.
 Ignore `/bin/`, coverage outputs, and local acceptance artifacts in `.gitignore`.
 Keep the README roadmap for deferred commands clearly distinct from implemented v1.
 
-- [ ] **Step 4: Run the final verification commands below and inspect every result.**
+- [x] **Step 4: Run the final verification commands below and inspect every result.**
 
 ```sh
 go test -race -coverprofile=/tmp/rubric-unit-coverage.out ./...
@@ -1316,7 +1316,7 @@ coverage report covers all substantive packages and explain any uncovered
 behavior before calling the work complete. A failing or unrun acceptance suite
 is a remaining requirement, not evidence that v1 is finished.
 
-- [ ] **Step 5: Commit with `git add internal/acceptance internal/testproject .github/workflows/ci.yml .golangci.yml .gitignore docs/cli-init.md README.md go.mod go.sum` and `git commit -m "test: verify rubric and generated projects end to end"`.**
+- [x] **Step 5: Commit with `git add internal/acceptance internal/testproject .github/workflows/ci.yml .golangci.yml .gitignore docs/cli-init.md README.md go.mod go.sum` and `git commit -m "test: verify rubric and generated projects end to end"`.**
 
 ## Spec coverage and final review
 
