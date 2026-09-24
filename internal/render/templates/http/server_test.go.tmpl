@@ -145,6 +145,7 @@ func TestWebRoutes(t *testing.T) {
 		{http.MethodGet, "/", http.StatusOK, `hx-post="/increment"`},
 		{http.MethodPost, "/increment", http.StatusOK, `<span id="count">1</span>`},
 		{http.MethodGet, "/static/htmx.min.js", http.StatusOK, "htmx"},
+		{http.MethodHead, "/static/htmx.min.js", http.StatusOK, ""},
 		{http.MethodPost, "/", http.StatusMethodNotAllowed, ""},
 		{http.MethodGet, "/increment", http.StatusMethodNotAllowed, ""},
 	} {

@@ -54,6 +54,20 @@ func TestIncrement(t *testing.T) {
 	}
 }
 
+func TestIncrementRejectsCrossOrigin(t *testing.T) {
+	h := New("demo")
+	request := httptest.NewRequest(http.MethodPost, "/increment", nil)
+	request.Header.Set("Sec-Fetch-Site", "cross-site")
+	response := httptest.NewRecorder()
+	h.Increment(response, request)
+	if response.Code != http.StatusForbidden {
+		t.Fatalf("status = %d", response.Code)
+	}
+	if body := get(t, h.Page, http.MethodGet, "/").Body.String(); !strings.Contains(body, `<span id="count">0</span>`) {
+		t.Fatal("rejected request changed the counter")
+	}
+}
+
 func TestConcurrentIncrements(t *testing.T) {
 	h := New("demo")
 	var wg sync.WaitGroup

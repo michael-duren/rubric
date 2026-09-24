@@ -22,6 +22,7 @@ func New(ready func(context.Context) error) http.Handler {
 	r.Get("/", ui.Page)
 	r.Post("/increment", ui.Increment)
 	r.Get("/static/*", ui.Static)
+	r.Head("/static/*", ui.Static)
 {{- end}}
 	return r
 }

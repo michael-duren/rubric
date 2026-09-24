@@ -75,12 +75,40 @@ func TestGeneratedWebFiles(t *testing.T) {
 	}
 }
 
+func TestExistingWebGuidanceMentionsOnlyAvailableCommands(t *testing.T) {
+	c := webConfig("chi", "playwright")
+	c.Project.Go = "1.22"
+	files, err := render.Files(c, "existing")
+	if err != nil {
+		t.Fatal(err)
+	}
+	agents := string(testproject.File(t, files, "AGENTS.md"))
+	for _, bad := range []string{"`e2e`", "setup-e2e", "test-e2e", "generate-templ"} {
+		if strings.Contains(agents, bad) {
+			t.Errorf("existing-mode guidance mentions undefined %s:\n%s", bad, agents)
+		}
+	}
+}
+
+func TestGeneratedWebSecurityAndHead(t *testing.T) {
+	files, err := render.Files(webConfig("chi", "none"), "new")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(testproject.File(t, files, "internal/web/web_test.go")), "TestIncrementRejectsCrossOrigin") {
+		t.Fatal("cross-origin protection is not tested")
+	}
+	if !strings.Contains(string(testproject.File(t, files, "internal/httpserver/server_test.go")), "http.MethodHead") {
+		t.Fatal("HEAD on static assets is not tested")
+	}
+}
+
 func TestGeneratedWeb(t *testing.T) {
 	if testing.Short() {
 		t.Skip("builds generated projects")
 	}
 	webTests := []string{"TestPageEscapesTitle", "TestPageLoadsAssets", "TestIncrement", "TestConcurrentIncrements",
-		"TestStaticAssets", "TestRenderFailure", "TestWebRoutes", "TestHealth"}
+		"TestStaticAssets", "TestRenderFailure", "TestIncrementRejectsCrossOrigin", "TestWebRoutes", "TestHealth"}
 	for _, tt := range []struct {
 		name string
 		f    config.Features

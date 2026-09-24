@@ -18,6 +18,7 @@ var assets embed.FS
 type Handler struct {
 	title string
 	files http.Handler
+	csrf  *http.CrossOriginProtection
 	mu    sync.Mutex
 	count int
 }
@@ -28,7 +29,11 @@ func New(title string) *Handler {
 	if err != nil {
 		panic(err)
 	}
-	return &Handler{title: title, files: http.StripPrefix("/static/", http.FileServerFS(static))}
+	return &Handler{
+		title: title,
+		files: http.StripPrefix("/static/", http.FileServerFS(static)),
+		csrf:  http.NewCrossOriginProtection(),
+	}
 }
 
 // Page renders the full page with the current counter value.
@@ -39,8 +44,12 @@ func (h *Handler) Page(w http.ResponseWriter, r *http.Request) {
 	render(w, r, page(h.title, count))
 }
 
-// Increment adds one to the counter and returns the updated counter fragment for htmx to swap in.
+// Increment adds one to the counter and returns the updated counter fragment; cross-origin requests are rejected.
 func (h *Handler) Increment(w http.ResponseWriter, r *http.Request) {
+	if err := h.csrf.Check(r); err != nil {
+		http.Error(w, "cross-origin request rejected", http.StatusForbidden)
+		return
+	}
 	h.mu.Lock()
 	h.count++
 	count := h.count

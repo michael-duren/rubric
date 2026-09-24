@@ -99,6 +99,10 @@ func configPackage(c config.Config) bool {
 	return f.HTTP != "none" || f.CLI != "none" || f.TUI != "none" || f.Database != "none" || f.Config == "viper"
 }
 
+func hasCommand(c config.Config, name string) bool {
+	return slices.ContainsFunc(c.Commands, func(cmd config.Command) bool { return cmd.Name == name })
+}
+
 func hasPackage(c config.Config, dir string) bool {
 	return slices.ContainsFunc(c.Evidence, func(e config.Evidence) bool { return e.Field == "package" && e.Value == dir })
 }
@@ -126,10 +130,13 @@ func layout(c config.Config, mode string) []string {
 		out = append(out, databaseGuidance(c)...)
 	}
 	if f := c.Features; f.Web == "htmx" && generated(c, mode, "internal/web") {
-		out = append(out, "`internal/web`: templ views, htmx handlers, bundled htmx and Alpine.js, and their tests; "+
-			"edit `views.templ`, then run generate-templ")
+		line := "`internal/web`: templ views, htmx handlers, bundled htmx and Alpine.js, and their tests"
+		if hasCommand(c, "generate-templ") {
+			line += "; edit `views.templ`, then run generate-templ"
+		}
+		out = append(out, line)
 	}
-	if c.Features.E2E == "playwright" {
+	if c.Features.E2E == "playwright" && hasCommand(c, "test-e2e") {
 		out = append(out, "`e2e`: Playwright browser tests behind the `e2e` build tag; run setup-e2e once, then test-e2e")
 	}
 	if configPackage(c) && generated(c, mode, "internal/config") {
