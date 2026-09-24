@@ -337,7 +337,7 @@ func TestValidate(t *testing.T) {
 		{name: "unknown starter", mode: "new", edit: func(c *Config) { c.Project.Starter = "full" }, wantErr: "project.starter"},
 		{name: "access without database", mode: "new", edit: func(c *Config) { c.Features.Access = "sql" }, wantErr: "features.access"},
 		{name: "database without access", mode: "new", edit: func(c *Config) { c.Features.Database = "sqlite" }, wantErr: "features.access"},
-		{name: "runnable with executable", mode: "new", edit: func(c *Config) { c.Project.Starter = "runnable"; c.Features.CLI = "cobra" }, wantErr: "project.starter"},
+		{name: "runnable with executable", mode: "new", edit: func(c *Config) { c.Project.Starter = "runnable"; c.Features.CLI = "cobra" }},
 		{name: "go mismatch new", mode: "new", edit: func(c *Config) { c.Project.Go = "1.25.0" }, wantErr: "project.go"},
 		{name: "older go existing preserved", mode: "existing", edit: func(c *Config) { c.Project.Go = "1.22" }},
 		{name: "malformed go existing", mode: "existing", edit: func(c *Config) { c.Project.Go = "banana" }, wantErr: "project.go"},
@@ -384,7 +384,7 @@ func TestValidateDefaultsNeedOnlyModule(t *testing.T) {
 	if err := Validate(cfg, "new"); err != nil {
 		t.Fatal(err)
 	}
-	if cfg.Project.Starter != "module" || cfg.Tooling != (Tooling{}) || cfg.Features.Config != "stdlib" {
+	if cfg.Project.Starter != "runnable" || cfg.Tooling != (Tooling{}) || cfg.Features.Config != "stdlib" {
 		t.Fatalf("defaults: %+v", cfg)
 	}
 }

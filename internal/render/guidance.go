@@ -142,7 +142,11 @@ func layout(c config.Config, mode string) []string {
 	if configPackage(c) && generated(c, mode, "internal/config") {
 		out = append(out, "`internal/config`: runtime settings loading and its tests")
 	}
-	if len(known) == 0 && c.Project.Starter == "runnable" && hasEntryPoint(c, mode, ".") {
+	if dir := "cmd/" + StarterName(c); len(known) == 0 && c.Project.Starter == "runnable" && hasEntryPoint(c, mode, dir) {
+		known[dir] = true
+		out = append(out, fmt.Sprintf("`%s`: %s executable wiring only; put behavior in tested packages under `internal/`",
+			dir, StarterName(c)))
+	} else if len(known) == 0 && c.Project.Starter == "runnable" && hasEntryPoint(c, mode, ".") && mode != "new" {
 		known["."] = true
 		out = append(out, "`main.go`: minimal entry point; move behavior into a tested package as it grows")
 	}

@@ -86,7 +86,7 @@ func TestReviewScrollsToSelection(t *testing.T) {
 	for range len(m.plan.Actions) {
 		m = drive(t, m, down)
 	}
-	view := m.View().Content
+	view := m.plainView()
 	last := m.plan.Actions[len(m.plan.Actions)-1].File.Path
 	if !strings.Contains(view, "> ") || !strings.Contains(view, last) {
 		t.Fatalf("selected row not visible:\n%s", view)
@@ -100,16 +100,16 @@ func TestReviewPreviewScrolls(t *testing.T) {
 	m := drive(t, manyActions(t), tea.WindowSizeMsg{Width: 80, Height: 10})
 	m = m.selectAction(t, ".rubric/style/analyze.go")
 	m = drive(t, m, key('p'))
-	first := m.View().Content
+	first := m.plainView()
 	if !strings.Contains(first, "Preview of .rubric/style/analyze.go") || !strings.Contains(first, "p close") {
 		t.Fatalf("preview screen:\n%s", first)
 	}
 	m = drive(t, m, down, down, down)
-	if m.View().Content == first {
+	if m.plainView() == first {
 		t.Fatal("preview did not scroll")
 	}
 	m = drive(t, m, key('p'))
-	if strings.Contains(m.View().Content, "Preview of") {
+	if strings.Contains(m.plainView(), "Preview of") {
 		t.Fatal("preview did not close")
 	}
 }

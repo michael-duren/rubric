@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/michael-duren/go-skills/internal/config"
 	"github.com/michael-duren/go-skills/internal/render"
 	"github.com/michael-duren/go-skills/internal/testproject"
 )
@@ -35,6 +36,12 @@ func TestMinimalStarters(t *testing.T) {
 				if strings.HasSuffix(f.Path, ".go") && starter == "module" {
 					t.Fatalf("module-only starter has Go source %s", f.Path)
 				}
+				if f.Path == "main.go" {
+					t.Fatal("runnable starter wrote a root main.go instead of cmd/<name>/main.go")
+				}
+			}
+			if _, err := os.Stat(filepath.Join(root, "cmd", "demo", "main.go")); (err == nil) != (starter == "runnable") {
+				t.Fatalf("cmd/demo/main.go presence wrong for %s: %v", starter, err)
 			}
 			mod := string(testproject.File(t, files, "go.mod"))
 			if !strings.HasPrefix(mod, "module example.com/demo\n\ngo 1.26.7\n") {
@@ -51,7 +58,7 @@ func TestRunnableMainIsMinimal(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := string(testproject.File(t, files, "main.go")); got != "// Command demo is the module entry point.\npackage main\n\nfunc main() {}\n" {
+	if got := string(testproject.File(t, files, "cmd/demo/main.go")); got != "// Command demo is the module entry point.\npackage main\n\nfunc main() {}\n" {
 		t.Fatalf("main.go = %q", got)
 	}
 }
@@ -134,6 +141,32 @@ func TestDescriptionIsLiteralData(t *testing.T) {
 		}
 		if strings.Contains(string(f.Data), "$(rm") && !strings.Contains(string(f.Data), c.Project.Description) {
 			t.Fatalf("%s altered description", f.Path)
+		}
+	}
+}
+
+func TestDefaultStarterAlwaysHasAnExecutable(t *testing.T) {
+	for _, tt := range []struct {
+		module, dir string
+	}{
+		{"example.com/demo", "cmd/demo/main.go"},
+		{"example.com/Shop.API/v2", "cmd/shop.api/main.go"},
+		{"example.com/@@@", "cmd/app/main.go"},
+		{"tool", "cmd/tool/main.go"},
+	} {
+		c := config.Defaults()
+		c.Project.Module = tt.module
+		c.Features.Database, c.Features.Access = "sqlite", "sql"
+		files, err := render.Files(c, "new")
+		if err != nil {
+			if strings.Contains(tt.module, "@") {
+				continue
+			}
+			t.Fatal(err)
+		}
+		main := string(testproject.File(t, files, tt.dir))
+		if !strings.Contains(main, "store.Open") {
+			t.Fatalf("%s does not wire the store:\n%s", tt.dir, main)
 		}
 	}
 }

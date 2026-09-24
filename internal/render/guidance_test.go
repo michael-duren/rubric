@@ -23,6 +23,7 @@ func instructions(t *testing.T, c config.Config, mode string) string {
 
 func TestModuleOnlyGuidanceHasNoRunCommand(t *testing.T) {
 	c := testproject.Config()
+	c.Project.Starter = "module"
 	c.Commands = render.Commands(c, "new")
 	text, err := render.Instructions(c, "new")
 	if err != nil {
@@ -38,6 +39,7 @@ func TestModuleOnlyGuidanceHasNoRunCommand(t *testing.T) {
 
 func TestModuleOnlyGuidanceHasNoBuildOrTestClaims(t *testing.T) {
 	c := testproject.Config()
+	c.Project.Starter = "module"
 	if cmds := render.Commands(c, "new"); len(cmds) != 0 {
 		t.Fatalf("module-only commands = %+v", cmds)
 	}
@@ -67,11 +69,11 @@ func TestGuidanceRootRunnable(t *testing.T) {
 	c.Project.Starter = "runnable"
 	cmds := render.Commands(c, "new")
 	names := commandNames(cmds)
-	if !slices.Equal(names, []string{"setup", "build", "test", "run"}) {
+	if !slices.Equal(names, []string{"setup", "build", "test", "run-demo"}) {
 		t.Fatalf("commands = %v", names)
 	}
 	text := instructions(t, c, "new")
-	if !strings.Contains(text, "`go run .`") || strings.Contains(text, "cmd/server") {
+	if !strings.Contains(text, "`go run ./cmd/demo`") || !strings.Contains(text, "`cmd/demo`") || strings.Contains(text, "cmd/server") {
 		t.Fatalf("runnable guidance:\n%s", text)
 	}
 }
@@ -121,6 +123,7 @@ func TestGuidanceForEachExecutable(t *testing.T) {
 
 func TestGuidanceLibraryOnlyComponents(t *testing.T) {
 	c := testproject.Config()
+	c.Project.Starter = "module"
 	c.Features.Database, c.Features.Access, c.Features.Config = "sqlite", "sql", "viper"
 	text := instructions(t, c, "new")
 	for _, want := range []string{"internal/store", "internal/config", "SQLite", "Viper", "go test ./..."} {
@@ -227,7 +230,7 @@ func TestFilesIncludeConfigGuidanceAndStyle(t *testing.T) {
 	}
 	want := map[string]string{
 		"rubric.yaml": "config", "README.md": "scaffold", "AGENTS.md": "guidance",
-		".rubric/style.md": "managed", "go.mod": "scaffold", "main.go": "scaffold",
+		".rubric/style.md": "managed", "go.mod": "scaffold", "cmd/demo/main.go": "scaffold",
 	}
 	for path, kind := range want {
 		if kinds[path] != kind {
@@ -235,7 +238,7 @@ func TestFilesIncludeConfigGuidanceAndStyle(t *testing.T) {
 		}
 	}
 	readme := string(testproject.File(t, files, "README.md"))
-	if !strings.Contains(readme, c.Project.Description) || !strings.Contains(readme, "go run .") {
+	if !strings.Contains(readme, c.Project.Description) || !strings.Contains(readme, "go run ./cmd/demo") {
 		t.Fatalf("README:\n%s", readme)
 	}
 	doc, err := config.Decode(testproject.File(t, files, "rubric.yaml"))
@@ -246,7 +249,7 @@ func TestFilesIncludeConfigGuidanceAndStyle(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if saved.Project.Description != c.Project.Description || !slices.Contains(commandNames(saved.Commands), "run") {
+	if saved.Project.Description != c.Project.Description || !slices.Contains(commandNames(saved.Commands), "run-demo") {
 		t.Fatalf("saved config = %+v", saved)
 	}
 	agents := string(testproject.File(t, files, "AGENTS.md"))

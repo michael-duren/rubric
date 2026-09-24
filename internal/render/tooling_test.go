@@ -301,7 +301,12 @@ func TestEmptyChecks(t *testing.T) {
 	if testing.Short() {
 		t.Skip("runs generated checks")
 	}
-	_, files := renderTooling(t, "new", config.Defaults().Features, config.Tooling{Makefile: true, Actions: true, Lint: true})
+	c := testproject.Config()
+	c.Project.Starter, c.Tooling = "module", config.Tooling{Makefile: true, Actions: true, Lint: true}
+	files, err := render.Files(c, "new")
+	if err != nil {
+		t.Fatal(err)
+	}
 	root := testproject.Write(t, files)
 	for _, op := range []string{"build", "test"} {
 		out, err := runCheck(t, root, "sh", ".rubric/check.sh", op)

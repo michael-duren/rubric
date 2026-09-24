@@ -120,8 +120,8 @@ func TestFlowExistingProjectFacts(t *testing.T) {
 		}
 	}
 	m := start(t, initialize.Request{Target: root, Mode: "auto"}, realBackend())
-	if m.mode != "existing" || !bytes.Contains([]byte(m.View().Content), []byte("example.com/app")) {
-		t.Fatalf("mode=%q view:\n%s", m.mode, m.View().Content)
+	if m.mode != "existing" || !bytes.Contains([]byte(m.plainView()), []byte("example.com/app")) {
+		t.Fatalf("mode=%q view:\n%s", m.mode, m.plainView())
 	}
 	if m.value("features.http") != "gin" || m.value("entry_points") != "cmd/api" {
 		t.Fatalf("facts not shown: http=%q entries=%q", m.value("features.http"), m.value("entry_points"))

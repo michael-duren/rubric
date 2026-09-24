@@ -1,7 +1,9 @@
 package render
 
 import (
+	"regexp"
 	"slices"
+	"strings"
 
 	"github.com/michael-duren/go-skills/internal/catalog"
 
@@ -31,7 +33,8 @@ func EntryPoints(c config.Config, mode string) []config.EntryPoint {
 		}
 	}
 	if len(out) == 0 && c.Project.Starter == "runnable" {
-		out = append(out, config.EntryPoint{Name: c.Project.Name, Dir: "."})
+		name := StarterName(c)
+		out = append(out, config.EntryPoint{Name: name, Dir: "cmd/" + name})
 	}
 	return out
 }
@@ -121,4 +124,22 @@ func runTarget(dir string) string {
 		return "."
 	}
 	return "./" + dir
+}
+
+var majorVersion = regexp.MustCompile(`^v[0-9]+$`)
+
+var starterUnsafe = regexp.MustCompile(`[^a-z0-9._-]+`)
+
+// StarterName is the cmd/ directory for the fallback executable: the last module element, lowercased and made path-safe.
+func StarterName(c config.Config) string {
+	elems := strings.Split(c.Project.Module, "/")
+	name := elems[len(elems)-1]
+	if len(elems) > 1 && majorVersion.MatchString(name) {
+		name = elems[len(elems)-2]
+	}
+	name = strings.Trim(starterUnsafe.ReplaceAllString(strings.ToLower(name), "-"), "-.")
+	if name == "" {
+		return "app"
+	}
+	return name
 }

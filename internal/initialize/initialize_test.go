@@ -76,7 +76,7 @@ func TestNewProjectIntoMissingDirectory(t *testing.T) {
 	if p.Mode != "new" {
 		t.Fatalf("mode = %s", p.Mode)
 	}
-	want := []string{".rubric/manifest.json", ".rubric/style.md", "AGENTS.md", "README.md", "go.mod", "rubric.yaml"}
+	want := []string{".rubric/manifest.json", ".rubric/style.md", "AGENTS.md", "README.md", "cmd/demo/main.go", "go.mod", "rubric.yaml"}
 	if !slices.Equal(paths(p, plan.StateCreate), want) {
 		t.Fatalf("created = %v", paths(p, plan.StateCreate))
 	}
@@ -298,7 +298,7 @@ func TestRerunDropsCommandsOfDisabledTooling(t *testing.T) {
 		t.Fatalf("stale lint command kept: %v", commandNames(p.Config.Commands))
 	}
 	p = mustPrepare(t, Request{Target: root, Mode: "auto", Overrides: config.Patch{"tooling.makefile": true}})
-	if !slices.Contains(commandNames(p.Config.Commands), "lint") || !slices.Contains(commandNames(p.Config.Commands), "run") {
+	if !slices.Contains(commandNames(p.Config.Commands), "lint") || !slices.Contains(commandNames(p.Config.Commands), "run-demo") {
 		t.Fatalf("commands lost: %v", commandNames(p.Config.Commands))
 	}
 }

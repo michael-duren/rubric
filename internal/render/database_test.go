@@ -93,7 +93,7 @@ func TestGeneratedDatabaseFiles(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if main := string(testproject.File(t, files, "main.go")); !strings.Contains(main, "store.Open") || !strings.Contains(main, `_ "modernc.org/sqlite"`) {
+	if main := string(testproject.File(t, files, "cmd/demo/main.go")); !strings.Contains(main, "store.Open") || !strings.Contains(main, `_ "modernc.org/sqlite"`) {
 		t.Errorf("runnable main does not use the store:\n%s", main)
 	}
 }

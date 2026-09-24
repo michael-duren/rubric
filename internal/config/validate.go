@@ -77,8 +77,6 @@ func Validate(cfg Config, mode string) error {
 	}
 	if !slices.Contains(starters, cfg.Project.Starter) {
 		fail("project.starter: %q must be one of %s", cfg.Project.Starter, strings.Join(starters, ", "))
-	} else if cfg.Project.Starter == "runnable" && hasExecutable(cfg.Features) {
-		fail("project.starter: runnable starter cannot be combined with HTTP, CLI, or TUI executables")
 	}
 	if mode == "new" {
 		f := cfg.Features

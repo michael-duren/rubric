@@ -20,7 +20,7 @@ func Defaults() Config {
 		Schema: SchemaVersion,
 		Project: Project{
 			Go:      GoBaseline,
-			Starter: "module",
+			Starter: "runnable",
 		},
 		Features: Features{
 			HTTP:     "none",
