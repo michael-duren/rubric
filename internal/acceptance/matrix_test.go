@@ -255,13 +255,12 @@ func TestAcceptanceMatrix(t *testing.T) {
 				Actions []struct{ State string }
 			}
 			r := mustRubric(t, "init", root, "--format", "json")
-			again := mustRubric(t, "init", root, "--format", "json")
-			if err := json.Unmarshal([]byte(again.out), &report); err != nil {
+			if err := json.Unmarshal([]byte(r.out), &report); err != nil {
 				t.Fatal(err)
 			}
 			for _, a := range report.Actions {
 				if a.State != "unchanged" {
-					t.Fatalf("second existing-mode rerun is not a no-op:\n%s\nfirst rerun:\n%s", again.out, r.out)
+					t.Fatalf("first rerun is not a no-op:\n%s", r.out)
 				}
 			}
 		})

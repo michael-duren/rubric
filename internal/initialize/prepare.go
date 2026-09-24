@@ -86,6 +86,11 @@ func Prepare(ctx context.Context, req Request) (plan.Plan, error) {
 	if err != nil {
 		return plan.Plan{}, &InputError{Cause: err}
 	}
+	if mode == "new" {
+		if cfg.Evidence, err = projectedEvidence(cfg); err != nil {
+			return plan.Plan{}, err
+		}
+	}
 	files, err := render.Files(cfg, mode)
 	if err != nil {
 		return plan.Plan{}, err
@@ -276,4 +281,30 @@ func reconcileCommands(saved, before, now []config.Command) []config.Command {
 		}
 	}
 	return out
+}
+
+func projectedEvidence(cfg config.Config) ([]config.Evidence, error) {
+	files, err := render.Files(cfg, "new")
+	if err != nil {
+		return nil, err
+	}
+	dir, err := os.MkdirTemp("", "rubric-detect-")
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = os.RemoveAll(dir) }()
+	for _, f := range files {
+		path := filepath.Join(dir, filepath.FromSlash(f.Path))
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			return nil, err
+		}
+		if err := os.WriteFile(path, f.Data, 0o600); err != nil {
+			return nil, err
+		}
+	}
+	facts, err := detect.Inspect(dir)
+	if err != nil {
+		return nil, err
+	}
+	return facts.Evidence, nil
 }

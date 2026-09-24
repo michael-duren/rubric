@@ -8,10 +8,10 @@ Module `{{.Module}}` (Go {{.Go}}).
 ## Stack
 {{if .Stack}}
 {{range .Stack}}- {{.}}
-{{end}}{{else if .Existing}}
-No application components were detected or declared. Update `rubric.yaml` when you confirm them.
-{{else}}
+{{end}}{{else if .ModuleOnly}}
 Module only: there are no application packages yet. Add code in a tested package before adding commands.
+{{else}}
+No HTTP, database, CLI, TUI, or configuration components are selected or detected. Record them in `rubric.yaml` when you add them.
 {{end}}{{if .Layout}}
 ## Layout
 

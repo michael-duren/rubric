@@ -54,6 +54,18 @@ func Validate(cfg Config, mode string) error {
 	if strings.ContainsRune(cfg.Project.Description, 0) {
 		fail("project.description: must not contain NUL")
 	}
+	for key, value := range map[string]string{
+		"project.name": cfg.Project.Name, "project.description": cfg.Project.Description,
+		"features.http": cfg.Features.HTTP, "features.database": cfg.Features.Database, "features.access": cfg.Features.Access,
+		"features.cli": cfg.Features.CLI, "features.tui": cfg.Features.TUI, "features.config": cfg.Features.Config,
+	} {
+		if strings.Contains(value, "rubric:begin") || strings.Contains(value, "rubric:end") {
+			fail("%s: must not contain Rubric guidance markers", key)
+		}
+		if strings.HasPrefix(key, "features.") && hasControl(value) {
+			fail("%s: must not contain control characters", key)
+		}
+	}
 	switch {
 	case mode == "new" && cfg.Project.Go != GoBaseline:
 		fail("project.go: new projects use Go %s, got %q", GoBaseline, cfg.Project.Go)

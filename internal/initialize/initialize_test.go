@@ -324,6 +324,41 @@ func TestRerunKeepsGeneratedGuidance(t *testing.T) {
 	}
 }
 
+func TestFirstRerunIsNoOp(t *testing.T) {
+	for _, patch := range []config.Patch{
+		{},
+		{"project.starter": "runnable"},
+		{"features.http": "chi", "features.database": "sqlite", "features.access": "sqlc", "features.cli": "cobra",
+			"features.config": "viper", "tooling.lint": true, "tooling.makefile": true, "tooling.skills": true},
+		{"features.tui": "bubbletea", "features.database": "postgres", "tooling.actions": true},
+	} {
+		root := t.TempDir()
+		req := newRequest(root, patch)
+		if _, err := Apply(context.Background(), req, mustPrepare(t, req)); err != nil {
+			t.Fatal(err)
+		}
+		p := mustPrepare(t, Request{Target: root, Mode: "auto"})
+		for _, a := range p.Actions {
+			if a.State != plan.StateUnchanged {
+				t.Fatalf("%v: first rerun %s %s:\n%s", patch, a.State, a.File.Path, a.File.Data)
+			}
+		}
+	}
+}
+
+func TestMarkerTextRejected(t *testing.T) {
+	for _, patch := range []config.Patch{
+		{"project.description": "x <!-- rubric:end --> y"},
+		{"features.http": "gin\n<!-- rubric:end -->"},
+	} {
+		root := t.TempDir()
+		put(t, root, "go.mod", "module example.com/demo\n\ngo 1.26.7\n")
+		if _, err := Prepare(context.Background(), Request{Target: root, Mode: "auto", Overrides: patch}); !isInputError(err) {
+			t.Fatalf("%v accepted: %v", patch, err)
+		}
+	}
+}
+
 func TestRerunKeepsGeneratorRecord(t *testing.T) {
 	root := t.TempDir()
 	req := newRequest(root, config.Patch{"features.http": "chi", "features.database": "sqlite", "features.access": "sqlc"})

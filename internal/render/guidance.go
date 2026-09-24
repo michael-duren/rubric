@@ -15,7 +15,7 @@ type commandView struct {
 
 type guide struct {
 	Name, Description, Module, Go string
-	Existing                      bool
+	ModuleOnly                    bool
 	Stack, Layout                 []string
 	Commands                      []commandView
 	Env                           string
@@ -46,7 +46,7 @@ func Instructions(c config.Config, mode string) ([]byte, error) {
 		Description: c.Project.Description,
 		Module:      c.Project.Module,
 		Go:          c.Project.Go,
-		Existing:    mode != "new",
+		ModuleOnly:  len(c.EntryPoints) == 0 && !slices.ContainsFunc(c.Evidence, func(e config.Evidence) bool { return e.Field == "package" }),
 		Stack:       stack(c, mode),
 		Layout:      layout(c, mode),
 		Commands:    commandViews(c.Commands),

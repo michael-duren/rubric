@@ -310,9 +310,6 @@ func TestTextReportAndRerun(t *testing.T) {
 		}
 	}
 	put(t, root, "main.go", "package main\n\nfunc main() { println(1) }\n")
-	if r := invoke(t.Context(), t, "init", root); r.code != 0 {
-		t.Fatalf("second: %+v", r)
-	}
 	r = invoke(t.Context(), t, "init", root, "--format", "json")
 	rep := decode(t, r)
 	for _, a := range rep.Actions {
