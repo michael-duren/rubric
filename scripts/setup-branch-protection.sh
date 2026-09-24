@@ -16,7 +16,7 @@
 #   scripts/setup-branch-protection.sh [--repo OWNER/NAME] [--branch NAME]
 #       [--approvals N] [--check NAME ...] [--code-owners] [--dry-run]
 #
-# Defaults: current repository, its default branch, 1 approval, and the single "ci" gate
+# Defaults: current repository, its default branch, 1 approval, and the single "CI gate (required)"
 # check from .github/workflows/ci.yml, which passes when path-filtered jobs pass or are skipped.
 set -euo pipefail
 
@@ -60,7 +60,7 @@ if [ -z "$branch" ]; then
 	branch=$(gh repo view "$repo" --json defaultBranchRef --jq .defaultBranchRef.name)
 fi
 if [ ${#checks[@]} -eq 0 ]; then
-	checks=("ci")
+	checks=("CI gate (required)")
 fi
 
 permission=$(gh repo view "$repo" --json viewerPermission --jq .viewerPermission)

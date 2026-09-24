@@ -1,4 +1,4 @@
-name: ci
+name: CI
 
 on:
   push:
@@ -16,6 +16,7 @@ env:
 
 jobs:
   changes:
+    name: Detect changed areas
     runs-on: ubuntu-latest
     outputs:
       go: ${{ steps.areas.outputs.go }}
@@ -31,6 +32,7 @@ jobs:
         run: .github/scripts/changed-areas.sh "$BASE" "$GITHUB_SHA" | tee -a "$GITHUB_OUTPUT"
 
   test:
+    name: Unit tests, vet, lint & style policy
     needs: changes
     if: needs.changes.outputs.go == 'true'
     runs-on: ubuntu-latest
@@ -53,13 +55,22 @@ jobs:
         run: go test -run TestRepositoryStyle ./internal/style
 
   acceptance:
+    name: "Acceptance ${{ matrix.label }}"
     needs: changes
-    if: needs.changes.outputs.go == 'true'
+    if: needs.changes.outputs.go == 'true' && github.event_name != 'push'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        shard: [0, 1, 2, 3]
+        include:
+          - shard: 0
+            label: "1/4: generated projects + tooling, PostgreSQL, terminal & browser suites"
+          - shard: 1
+            label: "2/4: generated projects"
+          - shard: 2
+            label: "3/4: generated projects"
+          - shard: 3
+            label: "4/4: generated projects"
     services:
       postgres:
         image: postgres:17.6
@@ -84,15 +95,16 @@ jobs:
         with:
           go-version-file: go.mod
       - name: Generated project matrix shard
-        run: go test -timeout 45m -run 'TestAcceptanceMatrix' ./internal/acceptance -v
+        run: go test -count=1 -timeout 45m -run 'TestAcceptanceMatrix' ./internal/acceptance -v
       - name: Install Playwright browsers
         if: matrix.shard == 0
         run: go run github.com/mxschmitt/playwright-go/cmd/playwright@v0.6201.1 install --with-deps chromium
       - name: Tooling, database, terminal, browser, and coverage acceptance
         if: matrix.shard == 0
-        run: go test -timeout 45m -skip 'TestAcceptanceMatrix' ./internal/acceptance ./internal/render -v
+        run: go test -count=1 -timeout 45m -skip 'TestAcceptanceMatrix' ./internal/acceptance ./internal/render -v
 
   scripts:
+    name: "Shell scripts: syntax & ShellCheck"
     needs: changes
     if: needs.changes.outputs.scripts == 'true'
     runs-on: ubuntu-latest
@@ -104,6 +116,7 @@ jobs:
         run: shellcheck scripts/*.sh .github/scripts/*.sh
 
   ci:
+    name: CI gate (required)
     if: always()
     needs: [changes, test, acceptance, scripts]
     runs-on: ubuntu-latest
