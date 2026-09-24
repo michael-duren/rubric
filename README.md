@@ -30,7 +30,9 @@ be adapting their practices to go lang projects.
         benchmark evidence attached. Deduped against open issues before filing.
 
 - [ ] **Style guide**
-  - [ ] Referenced go style guides and best practices.
+  - [ ] [Go Code Review Comments](https://go.dev/wiki/CodeReviewComments),
+        [Peter Bourgon's Formatting and style guidance](https://peter.bourgon.org/go-in-production/#formatting-and-style),
+        and the [Uber Go Style Guide](https://github.com/uber-go/guide/blob/master/style.md).
   - [ ] No inline comments by agents. Doc comments on exported symbols are required
         (go convention, enforced via lint).
   - [ ] Doc comments max 2 lines, 150 chars per line. Enforced by a custom analyzer.
@@ -67,18 +69,26 @@ be adapting their practices to go lang projects.
 
 - [ ] **CLI**
   - [ ] `rubric init`: interactive TUI to select features and bootstrap the repo.
+        Uses Bubble Tea, supports new and existing Go projects, and also runs
+        noninteractively. See the [v1 design spec](docs/superpowers/specs/2026-09-24-rubric-init-design.md).
   - [ ] Asks a series of questions to set up initial prompts.
   - [ ] `rubric validate`: lint, LSP conformance, path coverage.
   - [ ] `rubric make`: detect needs, update `rubric.yaml`, regenerate the Makefile.
   - [ ] `rubric paths`: list changed-code paths, coverage status, scaffold tests.
   - [ ] `rubric perf`: run benchmarks, trace diffs, load tests, emit before/after report.
 
+- [ ] **Testing (v1)**
+  - [ ] Automated tests cover all Rubric behavior.
+  - [ ] Generated Go code includes meaningful tests, except `main.go` files and files
+        beneath `cmd/` directories. Keep entry points thin and behavior in tested packages.
+  - [ ] Generated tests are included even when Makefile or CI setup is disabled.
+  - [ ] Verify that supported generated project combinations build and pass their tests.
+
 ## open questions
 
 - Infeasible paths: how to mark SSA paths that can't be reached (annotation, config, or
   solver)?
 - Load test tool: k6, vegeta, or built in?
-- TUI library: bubbletea?
 - Issues skill: which issue types, and GitHub Issues only?
 - Bug issues: file directly, or draft for human approval first? Label/severity scheme?
 - Language independence: which parts become a per-language plugin interface?
