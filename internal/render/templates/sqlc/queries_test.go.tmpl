@@ -1,0 +1,160 @@
+package queries
+{{if .SQLite}}
+import (
+	"database/sql"
+	"errors"
+	"os"
+	"path/filepath"
+	"testing"
+
+	_ "modernc.org/sqlite"
+)
+
+func testDB(t *testing.T, schema bool) *sql.DB {
+	t.Helper()
+	db, err := sql.Open("sqlite", filepath.Join(t.TempDir(), "queries.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := db.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	if schema {
+		ddl, err := os.ReadFile(filepath.Join("..", "..", "..", "sql", "schema.sql"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := db.Exec(string(ddl)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return db
+}
+
+func TestQueriesRoundTrip(t *testing.T) {
+	q := New(testDB(t, true))
+	for _, value := range []string{"one", "two"} {
+		if err := q.Put(t.Context(), PutParams{Key: "k", Value: value}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	got, err := q.Get(t.Context(), "k")
+	if err != nil || got != "two" {
+		t.Fatalf("Get = %q, %v", got, err)
+	}
+	if _, err := q.Get(t.Context(), "missing"); !errors.Is(err, sql.ErrNoRows) {
+		t.Fatalf("missing key: %v", err)
+	}
+}
+
+func TestQueriesWithTx(t *testing.T) {
+	db := testDB(t, true)
+	tx, err := db.BeginTx(t.Context(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := New(db).WithTx(tx).Put(t.Context(), PutParams{Key: "k", Value: "v"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.Rollback(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := New(db).Get(t.Context(), "k"); !errors.Is(err, sql.ErrNoRows) {
+		t.Fatalf("rolled-back write visible: %v", err)
+	}
+}
+
+func TestQueriesFailure(t *testing.T) {
+	q := New(testDB(t, false))
+	if err := q.Put(t.Context(), PutParams{Key: "k", Value: "v"}); err == nil {
+		t.Fatal("put without schema succeeded")
+	}
+	if _, err := q.Get(t.Context(), "k"); err == nil || errors.Is(err, sql.ErrNoRows) {
+		t.Fatalf("get without schema: %v", err)
+	}
+}
+{{else}}
+import (
+	"errors"
+	"regexp"
+	"testing"
+
+	"github.com/DATA-DOG/go-sqlmock"
+)
+
+func mockQueries(t *testing.T) (*Queries, sqlmock.Sqlmock) {
+	t.Helper()
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := mock.ExpectationsWereMet(); err != nil {
+			t.Error(err)
+		}
+		mock.ExpectClose()
+		if err := db.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	return New(db), mock
+}
+
+func TestQueriesGet(t *testing.T) {
+	q, mock := mockQueries(t)
+	mock.ExpectQuery(regexp.QuoteMeta("SELECT value FROM entries WHERE key = $1")).
+		WithArgs("k").WillReturnRows(sqlmock.NewRows([]string{"value"}).AddRow("v"))
+	got, err := q.Get(t.Context(), "k")
+	if err != nil || got != "v" {
+		t.Fatalf("Get = %q, %v", got, err)
+	}
+}
+
+func TestQueriesPut(t *testing.T) {
+	q, mock := mockQueries(t)
+	mock.ExpectExec(regexp.QuoteMeta("INSERT INTO entries (key, value) VALUES ($1, $2)")).
+		WithArgs("k", "v").WillReturnResult(sqlmock.NewResult(0, 1))
+	if err := q.Put(t.Context(), PutParams{Key: "k", Value: "v"}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestQueriesWithTx(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	mock.ExpectBegin()
+	mock.ExpectExec(regexp.QuoteMeta("INSERT INTO entries")).WithArgs("k", "v").WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectCommit()
+	tx, err := db.BeginTx(t.Context(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := New(db).WithTx(tx).Put(t.Context(), PutParams{Key: "k", Value: "v"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.Commit(); err != nil {
+		t.Fatal(err)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestQueriesFailure(t *testing.T) {
+	q, mock := mockQueries(t)
+	want := errors.New("relation does not exist")
+	mock.ExpectQuery(regexp.QuoteMeta("SELECT value FROM entries")).WithArgs("k").WillReturnError(want)
+	if _, err := q.Get(t.Context(), "k"); !errors.Is(err, want) {
+		t.Fatalf("Get = %v", err)
+	}
+	mock.ExpectExec(regexp.QuoteMeta("INSERT INTO entries")).WithArgs("k", "v").WillReturnError(want)
+	if err := q.Put(t.Context(), PutParams{Key: "k", Value: "v"}); !errors.Is(err, want) {
+		t.Fatalf("Put = %v", err)
+	}
+}
+{{end -}}

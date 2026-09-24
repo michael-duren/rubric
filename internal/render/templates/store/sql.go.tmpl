@@ -1,5 +1,7 @@
 package store
-{{if .SQLite}}
+{{if .SQLC}}
+const driverName = {{quote .Driver}}
+{{else if .SQLite}}
 const (
 	driverName = "sqlite"
 	getSQL     = "SELECT value FROM entries WHERE key = ?"

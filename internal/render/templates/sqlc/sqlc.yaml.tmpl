@@ -1,0 +1,10 @@
+version: "2"
+sql:
+  - engine: {{if .SQLite}}"sqlite"{{else}}"postgresql"{{end}}
+    schema: "sql/schema.sql"
+    queries: "sql/queries.sql"
+    gen:
+      go:
+        package: "queries"
+        out: "internal/store/queries"
+        sql_package: "database/sql"

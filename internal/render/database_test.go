@@ -103,19 +103,23 @@ func TestGeneratedPostgresIntegration(t *testing.T) {
 	if url == "" {
 		t.Skip("set RUBRIC_TEST_DATABASE_URL to run generated PostgreSQL integration tests")
 	}
-	c := testproject.Config()
-	c.Features.Database, c.Features.Access = "postgres", "sql"
-	files, err := render.Files(c, "new")
-	if err != nil {
-		t.Fatal(err)
-	}
-	root := testproject.Write(t, files)
-	testproject.Go(t, root, "mod", "tidy")
-	t.Setenv("TEST_DATABASE_URL", url)
-	out := testproject.Go(t, root, "test", "-count=1", "-tags", "integration", "-v", "./internal/store/...")
-	for _, name := range []string{"TestIntegrationRoundTrip", "TestIntegrationUpsert", "TestIntegrationNotFound"} {
-		if !strings.Contains(out, "--- PASS: "+name) {
-			t.Errorf("%s did not pass:\n%s", name, out)
-		}
+	for _, access := range []string{"sql", "sqlc"} {
+		t.Run(access, func(t *testing.T) {
+			c := testproject.Config()
+			c.Features.Database, c.Features.Access = "postgres", access
+			files, err := render.Files(c, "new")
+			if err != nil {
+				t.Fatal(err)
+			}
+			root := testproject.Write(t, files)
+			testproject.Go(t, root, "mod", "tidy")
+			t.Setenv("TEST_DATABASE_URL", url)
+			out := testproject.Go(t, root, "test", "-count=1", "-tags", "integration", "-v", "./internal/store/...")
+			for _, name := range []string{"TestIntegrationRoundTrip", "TestIntegrationUpsert", "TestIntegrationNotFound"} {
+				if !strings.Contains(out, "--- PASS: "+name) {
+					t.Errorf("%s did not pass:\n%s", name, out)
+				}
+			}
+		})
 	}
 }

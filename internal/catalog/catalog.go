@@ -76,3 +76,22 @@ func Cases() []config.Features {
 	}
 	return out
 }
+
+var tools = map[string]struct{ path, version string }{
+	"sqlc": {"github.com/sqlc-dev/sqlc/cmd/sqlc", "v1.31.1"},
+}
+
+// Tools returns the pinned tool versions the selected features run through the Go toolchain.
+func Tools(f config.Features) map[string]string {
+	out := map[string]string{}
+	if f.Access == "sqlc" {
+		out["sqlc"] = tools["sqlc"].version
+	}
+	return out
+}
+
+// Launcher returns the go run argument that executes the pinned tool, such as path@version.
+func Launcher(name string) string {
+	t := tools[name]
+	return t.path + "@" + t.version
+}

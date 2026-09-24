@@ -30,8 +30,8 @@ type data struct {
 	Requires []require
 	Commands []commandView
 
-	HTTP, SQLite, Postgres, Viper, ConfigPackage, Database bool
-	Driver, DriverImport                                   string
+	HTTP, SQLite, Postgres, Viper, ConfigPackage, Database, SQLC bool
+	Driver, DriverImport                                         string
 }
 
 type output struct {
@@ -41,6 +41,7 @@ type output struct {
 	mode     fs.FileMode
 	when     func(config.Config, string) bool
 	build    func(config.Config, string) ([]byte, error)
+	raw      bool
 }
 
 var outputs = []output{
@@ -82,7 +83,7 @@ func Files(cfg config.Config, mode string) ([]File, error) {
 	d := data{
 		Config: cfg, Mode: mode, Commands: commandViews(cfg.Commands),
 		HTTP: cfg.Features.HTTP != "none", SQLite: cfg.Features.Database == "sqlite", Postgres: cfg.Features.Database == "postgres",
-		Viper: cfg.Features.Config == "viper", ConfigPackage: configPackage(cfg),
+		Viper: cfg.Features.Config == "viper", ConfigPackage: configPackage(cfg), SQLC: cfg.Features.Access == "sqlc",
 	}
 	if drv, ok := drivers[cfg.Features.Database]; ok {
 		d.Database, d.Driver, d.DriverImport = true, drv.name, "_ "+strconv.Quote(drv.pkg)
@@ -93,15 +94,18 @@ func Files(cfg config.Config, mode string) ([]File, error) {
 		}
 	}
 	var files []File
-	for _, out := range slices.Concat(outputs, httpOutputs, cliOutputs, tuiOutputs, configOutputs, databaseOutputs) {
+	for _, out := range slices.Concat(outputs, httpOutputs, cliOutputs, tuiOutputs, configOutputs, databaseOutputs, sqlcOutputs) {
 		if !out.when(cfg, mode) {
 			continue
 		}
 		var body []byte
 		var err error
-		if out.build != nil {
+		switch {
+		case out.build != nil:
 			body, err = out.build(cfg, mode)
-		} else {
+		case out.raw:
+			body, err = templates.ReadFile("templates/" + out.template)
+		default:
 			body, err = execute(out.template, d)
 		}
 		if err != nil {
@@ -128,6 +132,7 @@ func Normalize(cfg config.Config, mode string) (config.Config, error) {
 			return cfg, err
 		}
 		cfg.Generator.Dependencies = deps
+		cfg.Generator.Tools = catalog.Tools(cfg.Features)
 	}
 	return cfg, nil
 }

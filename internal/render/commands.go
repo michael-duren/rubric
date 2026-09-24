@@ -3,6 +3,8 @@ package render
 import (
 	"slices"
 
+	"github.com/michael-duren/go-skills/internal/catalog"
+
 	"github.com/michael-duren/go-skills/internal/config"
 )
 
@@ -42,6 +44,11 @@ func Commands(c config.Config, mode string) []config.Command {
 			derived = append(derived, goCommand("setup", "mod", "tidy"))
 		}
 		derived = append(derived, goCommand("build", "build", "./..."), goCommand("test", "test", "./..."))
+	}
+	if mode == "new" && c.Features.Access == "sqlc" {
+		derived = append(derived, config.Command{
+			Name: "generate", Dir: ".", Argv: []string{"go", "run", catalog.Launcher("sqlc"), "generate"}, Env: []string{},
+		})
 	}
 	postgres := mode == "new" && c.Features.Database == "postgres"
 	if postgres {
