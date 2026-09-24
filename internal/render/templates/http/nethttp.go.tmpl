@@ -1,0 +1,15 @@
+// Package httpserver serves the application's HTTP endpoints.
+package httpserver
+
+import (
+	"context"
+	"net/http"
+)
+
+// New returns the service's HTTP handler; ready checks external dependencies and may be nil.
+func New(ready func(context.Context) error) http.Handler {
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /healthz", health)
+	mux.HandleFunc("GET /readyz", readiness(ready))
+	return mux
+}

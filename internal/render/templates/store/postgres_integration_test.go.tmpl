@@ -1,0 +1,125 @@
+//go:build integration
+
+package store
+
+import (
+	"database/sql"
+	"errors"
+	"fmt"
+	"net/url"
+	"os"
+	"path/filepath"
+	"testing"
+	"time"
+
+	_ "github.com/jackc/pgx/v5/stdlib"
+{{- if .SQLC}}
+
+	{{quote (print .Config.Project.Module "/internal/store/queries")}}
+{{- end}}
+)
+
+func integrationStore(t *testing.T) *Store {
+	t.Helper()
+	raw := os.Getenv("TEST_DATABASE_URL")
+	if raw == "" {
+		t.Fatal("TEST_DATABASE_URL is required when running with -tags integration")
+	}
+	admin, err := sql.Open("pgx", raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := admin.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	schema := fmt.Sprintf("rubric_test_%d", time.Now().UnixNano())
+	if _, err := admin.ExecContext(t.Context(), "CREATE SCHEMA "+schema); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if _, err := admin.Exec("DROP SCHEMA " + schema + " CASCADE"); err != nil {
+			t.Error(err)
+		}
+	})
+	u, err := url.Parse(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	q := u.Query()
+	q.Set("search_path", schema)
+	u.RawQuery = q.Encode()
+	store, err := Open(u.String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := store.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	ddl, err := os.ReadFile(filepath.Join("..", "..", "sql", "schema.sql"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.db.ExecContext(t.Context(), string(ddl)); err != nil {
+		t.Fatal(err)
+	}
+	return store
+}
+
+func TestIntegrationRoundTrip(t *testing.T) {
+	store := integrationStore(t)
+	if err := store.Ping(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Put(t.Context(), "name", "rubric"); err != nil {
+		t.Fatal(err)
+	}
+	got, err := store.Get(t.Context(), "name")
+	if err != nil || got != "rubric" {
+		t.Fatalf("Get = %q, %v", got, err)
+	}
+}
+
+func TestIntegrationUpsert(t *testing.T) {
+	store := integrationStore(t)
+	for _, value := range []string{"one", "two"} {
+		if err := store.Put(t.Context(), "k", value); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if got, err := store.Get(t.Context(), "k"); err != nil || got != "two" {
+		t.Fatalf("Get = %q, %v", got, err)
+	}
+}
+
+func TestIntegrationTransaction(t *testing.T) {
+	store := integrationStore(t)
+	tx, err := store.db.BeginTx(t.Context(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+{{- if .SQLC}}
+	if err := queries.New(store.db).WithTx(tx).Put(t.Context(), queries.PutParams{Key: "k", Value: "v"}); err != nil {
+		t.Fatal(err)
+	}
+{{- else}}
+	if _, err := tx.ExecContext(t.Context(), putSQL, "k", "v"); err != nil {
+		t.Fatal(err)
+	}
+{{- end}}
+	if err := tx.Rollback(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.Get(t.Context(), "k"); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("rolled-back write visible: %v", err)
+	}
+}
+
+func TestIntegrationNotFound(t *testing.T) {
+	if _, err := integrationStore(t).Get(t.Context(), "missing"); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("err = %v", err)
+	}
+}

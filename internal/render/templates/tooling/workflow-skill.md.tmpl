@@ -1,0 +1,16 @@
+---
+name: rubric-workflow
+description: {{quote (print "Use when building, running, or changing " .Config.Project.Name "; lists the commands this repository actually provides and how to report results.")}}
+---
+
+# {{.Config.Project.Name}} workflow
+
+Run commands from the module root.
+{{if .Config.Commands}}
+{{range .Config.Commands}}- {{.Name}}: `{{shellLine .Argv}}`{{if ne .Dir "."}} (in `{{.Dir}}`){{end}}{{if .Env}} (requires {{codeList .Env}}){{end}}
+{{end}}{{else}}
+No build, test, or run commands are configured yet. Add code in a tested package, then record commands in `rubric.yaml`.
+{{end}}
+- Keep executables under `cmd/` limited to wiring; put behavior in tested packages.
+- Record new commands in `rubric.yaml` instead of inventing them in prose.
+- Report which commands you ran and their actual results; never claim a check passed without running it.

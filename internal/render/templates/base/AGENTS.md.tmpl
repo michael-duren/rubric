@@ -1,0 +1,56 @@
+<!-- rubric:begin -->
+## Project
+
+**{{.Name}}**{{if .Description}}: {{.Description}}{{end}}
+
+Module `{{.Module}}` (Go {{.Go}}).
+
+## Stack
+{{if .Stack}}
+{{range .Stack}}- {{.}}
+{{end}}{{else if .ModuleOnly}}
+Module only: there are no application packages yet. Add code in a tested package before adding commands.
+{{else}}
+No HTTP, database, CLI, TUI, or configuration components are selected or detected. Record them in `rubric.yaml` when you add them.
+{{end}}{{if .Layout}}
+## Layout
+
+{{range .Layout}}- {{.}}
+{{end}}{{end}}
+## Commands
+{{if .Commands}}
+Run from the module root unless noted.
+
+{{range .Commands}}- {{.Name}}: `{{.Line}}`{{if ne .Dir "."}} (in `{{.Dir}}`){{end}}{{if .Env}} (requires {{.Env}}){{end}}
+{{end}}{{else}}
+No commands are configured. Ask before assuming one; record new commands in `rubric.yaml`.
+{{end}}{{if or .Env .Settings}}
+## Configuration
+{{if .Settings}}
+Runtime settings are loaded by `internal/config`:
+
+{{range .Settings}}- {{.}}
+{{end}}{{end}}{{if .Env}}
+Required environment variables: {{.Env}}. Never commit their values.
+{{end}}{{end}}{{if .Tooling}}
+## Tooling
+
+{{range .Tooling}}- {{.}}
+{{end}}{{end}}
+## Testing
+
+- Every Go package with non-exempt code ships meaningful tests of its behavior.
+- Exempt only files named `main.go` and files beneath any `cmd/` directory; keep behavior out of them.
+- Report the checks you actually ran and their measured results; never claim unexecuted validation passed.
+
+## Style
+
+Follow `.rubric/style.md`. Sources, in precedence order after the overrides below:
+[Go Code Review Comments](https://go.dev/wiki/CodeReviewComments),
+[Go in production: formatting and style](https://peter.bourgon.org/go-in-production/#formatting-and-style), and
+[Uber Go Style Guide](https://github.com/uber-go/guide/blob/master/style.md).
+
+- Do not add explanatory inline or trailing comments in Go code.
+- Exported application symbols require documentation comments.
+- A declaration's documentation comment has at most two physical lines, each at most 150 Unicode characters including `//`.
+<!-- rubric:end -->

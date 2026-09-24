@@ -1,0 +1,57 @@
+// Package cli implements the application's command-line commands.
+package cli
+
+import (
+	"context"
+	"errors"
+	"flag"
+	"fmt"
+	"io"
+)
+
+const program = {{quote .Config.Project.Name}}
+
+// ErrUsage reports invalid arguments after the usage text has been written.
+var ErrUsage = errors.New("invalid usage")
+
+// Run executes the command named in args, writing to out; check reports readiness and may be nil.
+func Run(ctx context.Context, args []string, out io.Writer, check func(context.Context) error) error {
+	fs := flag.NewFlagSet(program, flag.ContinueOnError)
+	fs.SetOutput(out)
+	fs.Usage = func() { usage(fs) }
+	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return nil
+		}
+		return fmt.Errorf("%w: %w", ErrUsage, err)
+	}
+	switch fs.Arg(0) {
+	case "", "help":
+		usage(fs)
+		return nil
+	case "status":
+		if fs.NArg() > 1 {
+			return fmt.Errorf("%w: status takes no arguments", ErrUsage)
+		}
+		return status(ctx, out, check)
+	}
+	return fmt.Errorf("%w: unknown command %q", ErrUsage, fs.Arg(0))
+}
+
+func usage(fs *flag.FlagSet) {
+	_, _ = fmt.Fprintf(fs.Output(), "Usage: %s <command>\n\nCommands:\n  status  report whether the application is ready\n", program)
+	fs.PrintDefaults()
+}
+
+func status(ctx context.Context, out io.Writer, check func(context.Context) error) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if check != nil {
+		if err := check(ctx); err != nil {
+			return err
+		}
+	}
+	_, err := io.WriteString(out, "ok\n")
+	return err
+}

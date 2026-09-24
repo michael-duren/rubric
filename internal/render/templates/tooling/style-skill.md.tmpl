@@ -1,0 +1,23 @@
+---
+name: rubric-style
+description: {{quote (print "Use when writing or reviewing Go code in " .Config.Project.Name "; applies the project style overrides and source guides.")}}
+---
+
+# Go style for {{.Config.Project.Name}}
+
+Overrides, which take precedence:
+
+- Do not add explanatory inline or trailing comments in Go code.
+- Exported application symbols require documentation comments.
+- A declaration's documentation comment has at most two physical lines, each at most 150 Unicode characters including `//`.
+
+Then follow, in order:
+[Go Code Review Comments](https://go.dev/wiki/CodeReviewComments),
+[Go in production: formatting and style](https://peter.bourgon.org/go-in-production/#formatting-and-style), and
+[Uber Go Style Guide](https://github.com/uber-go/guide/blob/master/style.md) where compatible.
+The full policy is in `.rubric/style.md`.
+{{if .Lint}}
+Check mechanically with `sh .rubric/check.sh lint`, which runs golangci-lint and the comment analyzer in `.rubric/style`.
+{{else}}
+Linting is not enabled for this project; review these rules by reading the code and format it with `gofmt`.
+{{end -}}

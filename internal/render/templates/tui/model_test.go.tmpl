@@ -1,0 +1,111 @@
+package tui
+
+import (
+	"context"
+	"errors"
+	"strings"
+	"testing"
+
+	tea "charm.land/bubbletea/v2"
+)
+
+func update(t *testing.T, m tea.Model, msg tea.Msg) (Model, tea.Cmd) {
+	t.Helper()
+	next, cmd := m.Update(msg)
+	model, ok := next.(Model)
+	if !ok {
+		t.Fatalf("Update returned %T", next)
+	}
+	return model, cmd
+}
+
+func TestQuit(t *testing.T) {
+	for _, key := range []tea.KeyPressMsg{
+		{Code: 'q', Text: "q"},
+		{Code: tea.KeyEscape},
+		{Code: 'c', Mod: tea.ModCtrl},
+	} {
+		model := New(t.Context(), nil)
+		_, command := model.Update(key)
+		if command == nil {
+			t.Fatalf("%s produced no command", key.String())
+		}
+		if _, ok := command().(tea.QuitMsg); !ok {
+			t.Fatalf("%s: expected quit message", key.String())
+		}
+	}
+}
+
+func TestInitialContent(t *testing.T) {
+	m := New(t.Context(), nil)
+	if m.Init() != nil {
+		t.Fatal("no check should mean no initial command")
+	}
+	if got := m.View().Content; got != "Ready.\nPress q to quit.\n" {
+		t.Fatalf("view = %q", got)
+	}
+	checking := New(t.Context(), func(context.Context) error { return nil })
+	if !strings.Contains(checking.View().Content, "Checking") {
+		t.Fatalf("view = %q", checking.View().Content)
+	}
+}
+
+func TestWindowResize(t *testing.T) {
+	m, cmd := update(t, New(t.Context(), nil), tea.WindowSizeMsg{Width: 4, Height: 2})
+	if cmd != nil || m.width != 4 || m.height != 2 {
+		t.Fatalf("model = %+v", m)
+	}
+	for _, line := range strings.Split(strings.TrimSuffix(m.View().Content, "\n"), "\n") {
+		if len([]rune(line)) > 4 {
+			t.Fatalf("line %q exceeds width", line)
+		}
+	}
+	m, _ = update(t, m, tea.WindowSizeMsg{Width: 0, Height: 0})
+	if m.width != 0 || !strings.Contains(m.View().Content, "Press q to quit.") {
+		t.Fatalf("zero size view = %q", m.View().Content)
+	}
+}
+
+func TestReadiness(t *testing.T) {
+	calls := 0
+	m := New(t.Context(), func(context.Context) error {
+		calls++
+		return nil
+	})
+	msg := m.Init()()
+	m, _ = update(t, m, msg)
+	if calls != 1 || m.status != "Ready." {
+		t.Fatalf("calls=%d status=%q", calls, m.status)
+	}
+	failing := New(t.Context(), func(context.Context) error { return errors.New("database down") })
+	failing, _ = update(t, failing, failing.Init()())
+	if !strings.Contains(failing.View().Content, "Not ready: database down") {
+		t.Fatalf("view = %q", failing.View().Content)
+	}
+}
+
+func TestUnrelatedMessage(t *testing.T) {
+	type other struct{}
+	before := New(t.Context(), nil)
+	after, cmd := update(t, before, other{})
+	if cmd != nil || after.View().Content != before.View().Content {
+		t.Fatal("unrelated message changed state")
+	}
+	after, cmd = update(t, before, tea.KeyPressMsg{Code: 'x', Text: "x"})
+	if cmd != nil || after.View().Content != before.View().Content {
+		t.Fatal("unbound key changed state")
+	}
+}
+
+func TestCancelledContext(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	m := New(ctx, func(context.Context) error {
+		t.Error("check ran after cancellation")
+		return nil
+	})
+	m, _ = update(t, m, m.Init()())
+	if !strings.Contains(m.status, context.Canceled.Error()) {
+		t.Fatalf("status = %q", m.status)
+	}
+}

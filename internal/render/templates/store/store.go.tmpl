@@ -1,0 +1,65 @@
+// Package store persists key/value entries in the database.
+package store
+
+import (
+	"context"
+	"database/sql"
+	"errors"
+	"fmt"
+)
+
+// ErrNotFound reports that no value is stored under a key.
+var ErrNotFound = errors.New("store: not found")
+
+// Store reads and writes key/value entries; apply sql/schema.sql before use.
+type Store struct {
+	db *sql.DB
+}
+
+// New wraps an open handle; the caller's main package registers the database driver.
+func New(db *sql.DB) (*Store, error) {
+	if db == nil {
+		return nil, errors.New("store: nil database handle")
+	}
+	return &Store{db: db}, nil
+}
+
+// Open creates a lazy connection pool for the registered {{.Driver}} driver without contacting the database.
+func Open(dsn string) (*Store, error) {
+	db, err := sql.Open(driverName, dsn)
+	if err != nil {
+		return nil, fmt.Errorf("store: open: %w", err)
+	}
+	return New(db)
+}
+
+// Ping reports whether the database is reachable.
+func (s *Store) Ping(ctx context.Context) error {
+	return s.db.PingContext(ctx)
+}
+
+// Get returns the value stored under key, or ErrNotFound.
+func (s *Store) Get(ctx context.Context, key string) (string, error) {
+	var value string
+	err := s.db.QueryRowContext(ctx, getSQL, key).Scan(&value)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", ErrNotFound
+	}
+	if err != nil {
+		return "", fmt.Errorf("store: get: %w", err)
+	}
+	return value, nil
+}
+
+// Put stores value under key, replacing any existing value.
+func (s *Store) Put(ctx context.Context, key, value string) error {
+	if _, err := s.db.ExecContext(ctx, putSQL, key, value); err != nil {
+		return fmt.Errorf("store: put: %w", err)
+	}
+	return nil
+}
+
+// Close releases the connection pool.
+func (s *Store) Close() error {
+	return s.db.Close()
+}

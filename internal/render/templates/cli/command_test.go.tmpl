@@ -1,0 +1,116 @@
+package cli
+
+import (
+	"bytes"
+	"context"
+	"errors"
+	"strings"
+	"sync"
+	"testing"
+)
+
+func mustNotCheck(t *testing.T) func(context.Context) error {
+	return func(context.Context) error {
+		t.Error("readiness check called")
+		return nil
+	}
+}
+
+func TestStatus(t *testing.T) {
+	var out bytes.Buffer
+	calls := 0
+	err := Run(t.Context(), []string{"status"}, &out, func(context.Context) error {
+		calls++
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out.String() != "ok\n" || calls != 1 {
+		t.Fatalf("output=%q checks=%d", out.String(), calls)
+	}
+}
+
+func TestStatusCheckFailure(t *testing.T) {
+	var out bytes.Buffer
+	want := errors.New("database unavailable")
+	err := Run(t.Context(), []string{"status"}, &out, func(context.Context) error { return want })
+	if !errors.Is(err, want) || strings.Contains(out.String(), "ok") {
+		t.Fatalf("err=%v output=%q", err, out.String())
+	}
+}
+
+func TestCancelledContext(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	var out bytes.Buffer
+	if err := Run(ctx, []string{"status"}, &out, mustNotCheck(t)); !errors.Is(err, context.Canceled) {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestHelp(t *testing.T) {
+	for _, args := range [][]string{ {"--help"}, {"help"}, {} } {
+		var out bytes.Buffer
+		if err := Run(t.Context(), args, &out, mustNotCheck(t)); err != nil {
+			t.Fatalf("%v: %v", args, err)
+		}
+		if !strings.Contains(out.String(), "status") {
+			t.Fatalf("%v: help = %q", args, out.String())
+		}
+	}
+}
+
+func TestInvalidFlag(t *testing.T) {
+	var out bytes.Buffer
+	if err := Run(t.Context(), []string{"--bogus"}, &out, mustNotCheck(t)); err == nil {
+		t.Fatal("invalid flag accepted")
+	}
+}
+
+func TestUnknownCommand(t *testing.T) {
+	var out bytes.Buffer
+	for _, args := range [][]string{ {"bogus"}, {"status", "extra"} } {
+		if err := Run(t.Context(), args, &out, mustNotCheck(t)); err == nil {
+			t.Fatalf("%v accepted", args)
+		}
+	}
+}
+
+type failingWriter struct{}
+
+func (failingWriter) Write([]byte) (int, error) {
+	return 0, errors.New("write failed")
+}
+
+func TestWriterFailure(t *testing.T) {
+	if err := Run(t.Context(), []string{"status"}, failingWriter{}, nil); err == nil {
+		t.Fatal("write failure ignored")
+	}
+}
+
+func TestConcurrentRuns(t *testing.T) {
+	var wg sync.WaitGroup
+	outs := make([]bytes.Buffer, 8)
+	errs := make([]error, len(outs))
+	for i := range outs {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			args := []string{"status"}
+			if i%2 == 1 {
+				args = []string{"--help"}
+			}
+			errs[i] = Run(t.Context(), args, &outs[i], nil)
+		}()
+	}
+	wg.Wait()
+	for i := range outs {
+		if errs[i] != nil {
+			t.Fatalf("run %d: %v", i, errs[i])
+		}
+		if i%2 == 0 && outs[i].String() != "ok\n" {
+			t.Fatalf("run %d output %q", i, outs[i].String())
+		}
+	}
+}

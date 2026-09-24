@@ -1,0 +1,166 @@
+package config
+
+import (
+{{- if .Postgres}}
+	"errors"
+{{- end}}
+{{- if .Viper}}
+	"os"
+	"path/filepath"
+	"strings"
+	"sync"
+{{- end}}
+	"testing"
+)
+{{if .Postgres}}
+const testDatabaseURL = "postgres://postgres@127.0.0.1:5432/rubric_test?sslmode=disable"
+{{end}}
+func env(values map[string]string) func(string) (string, bool) {
+	return func(key string) (string, bool) {
+		value, ok := values[key]
+		return value, ok
+	}
+}
+
+func baseEnv() map[string]string {
+	values := map[string]string{}
+{{- if .Postgres}}
+	values["APP_DATABASE_URL"] = testDatabaseURL
+{{- end}}
+	return values
+}
+
+func TestEnvironmentOverridesDefaults(t *testing.T) {
+	values := baseEnv()
+	values["APP_HTTP_ADDR"] = "127.0.0.1:9090"
+	got, err := Load("", env(values))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.HTTPAddr != "127.0.0.1:9090" {
+		t.Fatalf("address=%q", got.HTTPAddr)
+	}
+}
+
+func TestInvalidAddress(t *testing.T) {
+	values := baseEnv()
+	values["APP_HTTP_ADDR"] = "not an address"
+	if _, err := Load("", env(values)); err == nil {
+		t.Fatal("invalid address accepted")
+	}
+}
+{{if not .Postgres}}
+func TestDefaults(t *testing.T) {
+	got, err := Load("", env(nil))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.HTTPAddr != ":8080" {
+		t.Fatalf("address=%q", got.HTTPAddr)
+	}
+}
+{{end}}
+{{- if .SQLite}}
+func TestDatabaseDefault(t *testing.T) {
+	got, err := Load("", env(nil))
+	if err != nil || got.DatabaseURL != "app.db" {
+		t.Fatalf("database=%q err=%v", got.DatabaseURL, err)
+	}
+	got, err = Load("", env(map[string]string{"APP_DATABASE_URL": "other.db"}))
+	if err != nil || got.DatabaseURL != "other.db" {
+		t.Fatalf("database=%q err=%v", got.DatabaseURL, err)
+	}
+	if _, err := Load("", env(map[string]string{"APP_DATABASE_URL": ""})); err == nil {
+		t.Fatal("empty database path accepted")
+	}
+}
+{{end}}
+{{- if .Postgres}}
+func TestMissingDatabaseURL(t *testing.T) {
+	if _, err := Load("", env(nil)); !errors.Is(err, ErrMissingDatabaseURL) {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestInvalidDatabaseURL(t *testing.T) {
+	for _, value := range []string{"mysql://db/x", "postgres://", "::"} {
+		_, err := Load("", env(map[string]string{"APP_DATABASE_URL": value}))
+		if err == nil || errors.Is(err, ErrMissingDatabaseURL) {
+			t.Fatalf("%q: err = %v", value, err)
+		}
+	}
+}
+{{end}}
+{{- if .Viper}}
+func writeFile(t *testing.T, body string) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "app.yaml")
+	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
+func TestMissingFile(t *testing.T) {
+	if _, err := Load(filepath.Join(t.TempDir(), "missing.yaml"), env(baseEnv())); err == nil {
+		t.Fatal("missing file accepted")
+	}
+}
+
+func TestMalformedYAML(t *testing.T) {
+	if _, err := Load(writeFile(t, "http_addr: [\n"), env(baseEnv())); err == nil {
+		t.Fatal("malformed YAML accepted")
+	}
+}
+
+func TestTypeError(t *testing.T) {
+	_, err := Load(writeFile(t, "http_addr: [1, 2]\n"), env(baseEnv()))
+	if err == nil || !strings.Contains(err.Error(), "http_addr") {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestFileOverridesDefault(t *testing.T) {
+	got, err := Load(writeFile(t, "http_addr: 127.0.0.1:7000\n"), env(baseEnv()))
+	if err != nil || got.HTTPAddr != "127.0.0.1:7000" {
+		t.Fatalf("address=%q err=%v", got.HTTPAddr, err)
+	}
+}
+
+func TestEnvironmentOverridesFile(t *testing.T) {
+	values := baseEnv()
+	values["APP_HTTP_ADDR"] = "127.0.0.1:9000"
+	got, err := Load(writeFile(t, "http_addr: 127.0.0.1:7000\n"), env(values))
+	if err != nil || got.HTTPAddr != "127.0.0.1:9000" {
+		t.Fatalf("address=%q err=%v", got.HTTPAddr, err)
+	}
+}
+
+func TestIsolatedInstances(t *testing.T) {
+	var wg sync.WaitGroup
+	results := make([]string, 6)
+	errs := make([]error, len(results))
+	for i := range results {
+		path := writeFile(t, "http_addr: 127.0.0.1:70"+string(rune('0'+i))+"0\n")
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			got, err := Load(path, env(baseEnv()))
+			results[i], errs[i] = got.HTTPAddr, err
+		}()
+	}
+	wg.Wait()
+	for i, got := range results {
+		want := "127.0.0.1:70" + string(rune('0'+i)) + "0"
+		if errs[i] != nil || got != want {
+			t.Fatalf("instance %d: %q %v", i, got, errs[i])
+		}
+	}
+}
+{{else}}
+func TestConfigFileUnsupported(t *testing.T) {
+	if _, err := Load("app.yaml", env(baseEnv())); err == nil {
+		t.Fatal("standard-library settings accepted a file")
+	}
+}
+{{end -}}

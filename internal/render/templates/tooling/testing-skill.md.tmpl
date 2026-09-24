@@ -1,0 +1,15 @@
+---
+name: rubric-testing
+description: {{quote (print "Use when adding or changing Go code in " .Config.Project.Name "; states the mandatory testing policy and how to run the tests.")}}
+---
+
+# Testing {{.Config.Project.Name}}
+
+- Every Go package with non-exempt code ships meaningful tests of its behavior.
+- Only files named `main.go` and files beneath any `cmd/` directory are exempt; keep behavior out of them.
+- Cover success, invalid input, failure, and cancellation paths. No placeholder assertions or permanently skipped tests.
+- Default tests must not need credentials, a live database, or a terminal.
+{{range .Config.Commands}}{{if or (eq .Name "test") (eq .Name "test-integration")}}
+Run `{{shellLine .Argv}}`{{if .Env}} with {{codeList .Env}} set{{end}}.
+{{end}}{{end}}
+Report unit and integration results separately, with the commands you ran.

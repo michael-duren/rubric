@@ -1,0 +1,18 @@
+package config
+
+import "fmt"
+
+// Load reads APP_* values through lookup over defaults; the standard-library variant reads no files.
+func Load(filename string, lookup func(string) (string, bool)) (Settings, error) {
+	if filename != "" {
+		return Settings{}, fmt.Errorf("configuration file %q is not supported; set APP_* environment variables instead", filename)
+	}
+	s := Settings{HTTPAddr: defaultHTTPAddr, DatabaseURL: defaultDatabaseURL}
+	if value, ok := lookup("APP_HTTP_ADDR"); ok {
+		s.HTTPAddr = value
+	}
+	if value, ok := lookup("APP_DATABASE_URL"); ok {
+		s.DatabaseURL = value
+	}
+	return s, s.validate()
+}

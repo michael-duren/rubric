@@ -1,0 +1,47 @@
+// Package cli implements the application's command-line commands.
+package cli
+
+import (
+	"context"
+	"io"
+
+	"github.com/spf13/cobra"
+)
+
+const program = {{quote .Config.Project.Name}}
+
+// Run executes the command named in args, writing to out; check reports readiness and may be nil.
+func Run(ctx context.Context, args []string, out io.Writer, check func(context.Context) error) error {
+	root := &cobra.Command{
+		Use:           program,
+		Short:         program + " command-line interface",
+		SilenceUsage:  true,
+		SilenceErrors: true,
+	}
+	root.SetArgs(args)
+	root.SetOut(out)
+	root.SetErr(out)
+	root.CompletionOptions.DisableDefaultCmd = true
+	root.AddCommand(&cobra.Command{
+		Use:   "status",
+		Short: "Report whether the application is ready",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return status(cmd.Context(), out, check)
+		},
+	})
+	return root.ExecuteContext(ctx)
+}
+
+func status(ctx context.Context, out io.Writer, check func(context.Context) error) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if check != nil {
+		if err := check(ctx); err != nil {
+			return err
+		}
+	}
+	_, err := io.WriteString(out, "ok\n")
+	return err
+}

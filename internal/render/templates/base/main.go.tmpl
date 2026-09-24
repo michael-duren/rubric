@@ -1,0 +1,56 @@
+// Command {{.Config.Project.Name}} is the module entry point.
+package main
+{{if .Database}}
+import (
+	"context"
+	"errors"
+	"fmt"
+	"os"
+	"time"
+
+	{{.DriverImport}}
+
+	{{quote (print .Config.Project.Module "/internal/config")}}
+	{{quote (print .Config.Project.Module "/internal/store")}}
+)
+
+func main() {
+	if err := run(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+}
+
+func run() (err error) {
+	settings, err := config.Load(os.Getenv("APP_CONFIG_FILE"), os.LookupEnv)
+	if err != nil {
+		return err
+	}
+	st, err := store.Open(settings.DatabaseURL)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		err = errors.Join(err, st.Close())
+	}()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	return st.Ping(ctx)
+}
+{{else if .ConfigPackage}}
+import (
+	"fmt"
+	"os"
+
+	{{quote (print .Config.Project.Module "/internal/config")}}
+)
+
+func main() {
+	if _, err := config.Load(os.Getenv("APP_CONFIG_FILE"), os.LookupEnv); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+}
+{{else}}
+func main() {}
+{{end -}}

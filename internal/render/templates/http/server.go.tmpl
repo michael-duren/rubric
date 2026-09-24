@@ -1,0 +1,55 @@
+package httpserver
+
+import (
+	"context"
+	"errors"
+	"io"
+	"net"
+	"net/http"
+	"time"
+)
+
+const (
+	readHeaderTimeout = 5 * time.Second
+	shutdownTimeout   = 10 * time.Second
+)
+
+func health(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	_, _ = io.WriteString(w, "ok\n")
+}
+
+func readiness(ready func(context.Context) error) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		if ready != nil {
+			if err := ready(r.Context()); err != nil {
+				w.WriteHeader(http.StatusServiceUnavailable)
+				_, _ = io.WriteString(w, "unavailable\n")
+				return
+			}
+		}
+		_, _ = io.WriteString(w, "ready\n")
+	}
+}
+
+// Serve handles requests on l until ctx ends, then shuts down gracefully within a bounded time.
+func Serve(ctx context.Context, l net.Listener, ready func(context.Context) error) error {
+	srv := &http.Server{Handler: New(ready), ReadHeaderTimeout: readHeaderTimeout}
+	served := make(chan error, 1)
+	go func() {
+		served <- srv.Serve(l)
+	}()
+	select {
+	case err := <-served:
+		return err
+	case <-ctx.Done():
+	}
+	shutdownCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), shutdownTimeout)
+	defer cancel()
+	shutdownErr := srv.Shutdown(shutdownCtx)
+	if err := <-served; !errors.Is(err, http.ErrServerClosed) {
+		return errors.Join(err, shutdownErr)
+	}
+	return shutdownErr
+}

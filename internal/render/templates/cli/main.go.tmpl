@@ -1,0 +1,52 @@
+// Command cli runs the command-line interface.
+package main
+
+import (
+	"context"
+{{- if .Database}}
+	"errors"
+{{- end}}
+	"fmt"
+	"os"
+	"os/signal"
+{{if .Database}}
+	{{.DriverImport}}
+{{end}}
+	{{quote (print .Config.Project.Module "/internal/cli")}}
+	{{quote (print .Config.Project.Module "/internal/config")}}
+{{- if .Database}}
+	{{quote (print .Config.Project.Module "/internal/store")}}
+{{- end}}
+)
+
+func main() {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	err := run(ctx)
+	stop()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+}
+
+func run(ctx context.Context) {{if .Database}}(err error){{else}}error{{end}} {
+{{- if .Database}}
+	settings, err := config.Load(os.Getenv("APP_CONFIG_FILE"), os.LookupEnv)
+	if err != nil {
+		return err
+	}
+	st, err := store.Open(settings.DatabaseURL)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		err = errors.Join(err, st.Close())
+	}()
+	return cli.Run(ctx, os.Args[1:], os.Stdout, st.Ping)
+{{- else}}
+	if _, err := config.Load(os.Getenv("APP_CONFIG_FILE"), os.LookupEnv); err != nil {
+		return err
+	}
+	return cli.Run(ctx, os.Args[1:], os.Stdout, nil)
+{{- end}}
+}

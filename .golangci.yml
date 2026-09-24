@@ -1,0 +1,17 @@
+version: "2"
+
+linters:
+  default: none
+  enable:
+    - errcheck
+    - govet
+    - staticcheck
+    - revive
+  exclusions:
+    paths:
+      - internal/render/templates
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
