@@ -24,11 +24,15 @@ Run from the module root unless noted.
 {{range .Commands}}- {{.Name}}: `{{.Line}}`{{if ne .Dir "."}} (in `{{.Dir}}`){{end}}{{if .Env}} (requires {{.Env}}){{end}}
 {{end}}{{else}}
 No commands are configured. Ask before assuming one; record new commands in `rubric.yaml`.
-{{end}}{{if .Env}}
+{{end}}{{if or .Env .Settings}}
 ## Configuration
+{{if .Settings}}
+Runtime settings are loaded by `internal/config`:
 
+{{range .Settings}}- {{.}}
+{{end}}{{end}}{{if .Env}}
 Required environment variables: {{.Env}}. Never commit their values.
-{{end}}
+{{end}}{{end}}
 ## Testing
 
 - Every Go package with non-exempt code ships meaningful tests of its behavior.

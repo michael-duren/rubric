@@ -9,16 +9,27 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
+	{{quote (print .Config.Project.Module "/internal/config")}}
 	{{quote (print .Config.Project.Module "/internal/tui")}}
 )
 
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
-	defer stop()
-	_, err := tea.NewProgram(tui.New(ctx, nil), tea.WithContext(ctx)).Run()
-	if err != nil && !errors.Is(err, tea.ErrProgramKilled) && !errors.Is(err, tea.ErrInterrupted) {
+	err := run(ctx)
+	stop()
+	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
-		stop()
 		os.Exit(1)
 	}
+}
+
+func run(ctx context.Context) error {
+	if _, err := config.Load(os.Getenv("APP_CONFIG_FILE"), os.LookupEnv); err != nil {
+		return err
+	}
+	_, err := tea.NewProgram(tui.New(ctx, nil), tea.WithContext(ctx)).Run()
+	if errors.Is(err, tea.ErrProgramKilled) || errors.Is(err, tea.ErrInterrupted) {
+		return nil
+	}
+	return err
 }

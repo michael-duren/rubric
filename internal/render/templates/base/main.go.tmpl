@@ -1,3 +1,18 @@
 package main
+{{if .ConfigPackage}}
+import (
+	"fmt"
+	"os"
 
+	{{quote (print .Config.Project.Module "/internal/config")}}
+)
+
+func main() {
+	if _, err := config.Load(os.Getenv("APP_CONFIG_FILE"), os.LookupEnv); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+}
+{{else}}
 func main() {}
+{{end -}}

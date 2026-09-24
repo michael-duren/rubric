@@ -29,6 +29,8 @@ type data struct {
 	Mode     string
 	Requires []require
 	Commands []commandView
+
+	HTTP, SQLite, Postgres, Viper, ConfigPackage bool
 }
 
 type output struct {
@@ -76,14 +78,18 @@ func Files(cfg config.Config, mode string) ([]File, error) {
 	if err != nil {
 		return nil, fmt.Errorf("render: %w", err)
 	}
-	d := data{Config: cfg, Mode: mode, Commands: commandViews(cfg.Commands)}
+	d := data{
+		Config: cfg, Mode: mode, Commands: commandViews(cfg.Commands),
+		HTTP: cfg.Features.HTTP != "none", SQLite: cfg.Features.Database == "sqlite", Postgres: cfg.Features.Database == "postgres",
+		Viper: cfg.Features.Config == "viper", ConfigPackage: configPackage(cfg),
+	}
 	if mode == "new" {
 		for _, p := range slices.Sorted(maps.Keys(cfg.Generator.Dependencies)) {
 			d.Requires = append(d.Requires, require{Path: p, Version: cfg.Generator.Dependencies[p]})
 		}
 	}
 	var files []File
-	for _, out := range slices.Concat(outputs, httpOutputs, cliOutputs, tuiOutputs) {
+	for _, out := range slices.Concat(outputs, httpOutputs, cliOutputs, tuiOutputs, configOutputs) {
 		if !out.when(cfg, mode) {
 			continue
 		}

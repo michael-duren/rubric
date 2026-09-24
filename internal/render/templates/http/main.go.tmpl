@@ -8,23 +8,28 @@ import (
 	"os/signal"
 	"syscall"
 
+	{{quote (print .Config.Project.Module "/internal/config")}}
 	{{quote (print .Config.Project.Module "/internal/httpserver")}}
 )
 
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	addr := os.Getenv("HTTP_ADDR")
-	if addr == "" {
-		addr = ":8080"
+	if err := run(ctx); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		stop()
+		os.Exit(1)
 	}
-	l, err := net.Listen("tcp", addr)
+}
+
+func run(ctx context.Context) error {
+	settings, err := config.Load(os.Getenv("APP_CONFIG_FILE"), os.LookupEnv)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+		return err
 	}
-	if err := httpserver.Serve(ctx, l, nil); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+	l, err := net.Listen("tcp", settings.HTTPAddr)
+	if err != nil {
+		return err
 	}
+	return httpserver.Serve(ctx, l, nil)
 }

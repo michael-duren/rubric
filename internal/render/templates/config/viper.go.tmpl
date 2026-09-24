@@ -1,0 +1,44 @@
+package config
+
+import (
+	"fmt"
+
+	"github.com/spf13/viper"
+)
+
+// Load reads filename when non-empty, then APP_* values through lookup, over defaults, using a private Viper instance.
+func Load(filename string, lookup func(string) (string, bool)) (Settings, error) {
+	v := viper.New()
+	v.SetDefault("http_addr", defaultHTTPAddr)
+	v.SetDefault("database_url", defaultDatabaseURL)
+	if filename != "" {
+		v.SetConfigFile(filename)
+		if err := v.ReadInConfig(); err != nil {
+			return Settings{}, fmt.Errorf("read %s: %w", filename, err)
+		}
+	}
+	if value, ok := lookup("APP_HTTP_ADDR"); ok {
+		v.Set("http_addr", value)
+	}
+	if value, ok := lookup("APP_DATABASE_URL"); ok {
+		v.Set("database_url", value)
+	}
+	httpAddr, err := stringSetting(v, "http_addr")
+	if err != nil {
+		return Settings{}, err
+	}
+	databaseURL, err := stringSetting(v, "database_url")
+	if err != nil {
+		return Settings{}, err
+	}
+	s := Settings{HTTPAddr: httpAddr, DatabaseURL: databaseURL}
+	return s, s.validate()
+}
+
+func stringSetting(v *viper.Viper, key string) (string, error) {
+	value, ok := v.Get(key).(string)
+	if !ok {
+		return "", fmt.Errorf("%s: expected a string", key)
+	}
+	return value, nil
+}

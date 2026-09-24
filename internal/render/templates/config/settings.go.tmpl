@@ -1,0 +1,46 @@
+package config
+
+import (
+{{- if or .Postgres .SQLite}}
+	"errors"
+{{- end}}
+	"fmt"
+	"net"
+{{- if .Postgres}}
+	"net/url"
+{{- end}}
+)
+
+const (
+	defaultHTTPAddr    = ":8080"
+	defaultDatabaseURL = {{if .SQLite}}"app.db"{{else}}""{{end}}
+)
+{{if .Postgres}}
+// ErrMissingDatabaseURL reports that APP_DATABASE_URL is required but was not supplied.
+var ErrMissingDatabaseURL = errors.New("APP_DATABASE_URL is required")
+{{end}}
+// Settings holds the application's runtime configuration.
+type Settings struct {
+	HTTPAddr    string
+	DatabaseURL string
+}
+
+func (s Settings) validate() error {
+	if _, _, err := net.SplitHostPort(s.HTTPAddr); err != nil {
+		return fmt.Errorf("APP_HTTP_ADDR %q: %w", s.HTTPAddr, err)
+	}
+{{- if .Postgres}}
+	if s.DatabaseURL == "" {
+		return ErrMissingDatabaseURL
+	}
+	u, err := url.Parse(s.DatabaseURL)
+	if err != nil || (u.Scheme != "postgres" && u.Scheme != "postgresql") || u.Host == "" {
+		return errors.New("APP_DATABASE_URL must be a postgres:// URL with a host")
+	}
+{{- else if .SQLite}}
+	if s.DatabaseURL == "" {
+		return errors.New("APP_DATABASE_URL must name a SQLite database file")
+	}
+{{- end}}
+	return nil
+}

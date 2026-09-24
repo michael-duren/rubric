@@ -7,14 +7,22 @@ import (
 	"os/signal"
 
 	{{quote (print .Config.Project.Module "/internal/cli")}}
+	{{quote (print .Config.Project.Module "/internal/config")}}
 )
 
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
-	err := cli.Run(ctx, os.Args[1:], os.Stdout, nil)
+	err := run(ctx)
 	stop()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
+}
+
+func run(ctx context.Context) error {
+	if _, err := config.Load(os.Getenv("APP_CONFIG_FILE"), os.LookupEnv); err != nil {
+		return err
+	}
+	return cli.Run(ctx, os.Args[1:], os.Stdout, nil)
 }

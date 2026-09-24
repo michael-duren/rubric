@@ -19,6 +19,7 @@ type guide struct {
 	Stack, Layout                 []string
 	Commands                      []commandView
 	Env                           string
+	Settings                      []string
 }
 
 var labels = map[string]string{
@@ -49,6 +50,7 @@ func Instructions(c config.Config, mode string) ([]byte, error) {
 		Layout:      layout(c, mode),
 		Commands:    commandViews(c.Commands),
 		Env:         envNames(c.Commands),
+		Settings:    settingsGuidance(c, mode),
 	}
 	out, err := execute("base/AGENTS.md.tmpl", g)
 	if err != nil {
