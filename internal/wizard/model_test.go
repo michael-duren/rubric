@@ -134,7 +134,7 @@ func TestInvalidModuleStaysOnTarget(t *testing.T) {
 	if m.stage != targetStage || m.message == "" {
 		t.Fatalf("invalid module accepted: %q", m.message)
 	}
-	if !strings.Contains(m.View().Content, m.message) {
+	if !strings.Contains(m.plainView(), m.message) {
 		t.Fatal("validation error not displayed")
 	}
 }
@@ -240,11 +240,11 @@ func TestStarterHiddenWithExecutables(t *testing.T) {
 func TestZeroSizeTerminal(t *testing.T) {
 	m := start(t, initialize.Request{Target: t.TempDir(), Mode: "auto"}, realBackend())
 	m = drive(t, m, tea.WindowSizeMsg{Width: 0, Height: 0})
-	if m.View().Content == "" {
+	if m.plainView() == "" {
 		t.Fatal("empty view")
 	}
 	m = drive(t, m, tea.WindowSizeMsg{Width: 12, Height: 3})
-	for _, line := range strings.Split(m.View().Content, "\n") {
+	for _, line := range strings.Split(m.plainView(), "\n") {
 		if len([]rune(line)) > minWidth {
 			t.Fatalf("line %q wider than the clamped width", line)
 		}
@@ -298,8 +298,8 @@ func TestApplyError(t *testing.T) {
 	if !errors.Is(m.applyErr, want) || m.stage != doneStage || m.outcome.Cancelled {
 		t.Fatalf("stage=%v err=%v", m.stage, m.applyErr)
 	}
-	if !strings.Contains(m.View().Content, "disk full") {
-		t.Fatalf("apply error not shown:\n%s", m.View().Content)
+	if !strings.Contains(m.plainView(), "disk full") {
+		t.Fatalf("apply error not shown:\n%s", m.plainView())
 	}
 }
 
@@ -351,8 +351,8 @@ func TestReviewDecisions(t *testing.T) {
 	}
 	m = m.selectAction(t, "Makefile")
 	m = drive(t, m, key('p'))
-	if !strings.Contains(m.View().Content, "-all:") {
-		t.Fatalf("diff preview missing:\n%s", m.View().Content)
+	if !strings.Contains(m.plainView(), "-all:") {
+		t.Fatalf("diff preview missing:\n%s", m.plainView())
 	}
 	m = drive(t, m, key('p'), key('s'))
 	if m.value("tooling.makefile") != "false" {
@@ -372,8 +372,8 @@ func TestReviewDecisions(t *testing.T) {
 	if string(readme) == "mine\n" || string(mk) != "all:\n" {
 		t.Fatalf("decisions not honored: README=%q Makefile=%q", readme, mk)
 	}
-	if strings.Contains(m.View().Content, "tests passed") || !strings.Contains(m.View().Content, "did not download dependencies") {
-		t.Fatalf("final view:\n%s", m.View().Content)
+	if strings.Contains(m.plainView(), "tests passed") || !strings.Contains(m.plainView(), "did not download dependencies") {
+		t.Fatalf("final view:\n%s", m.plainView())
 	}
 }
 

@@ -51,7 +51,7 @@ func TestToolingVariants(t *testing.T) {
 	acceptance(t)
 	_, makeErr := exec.LookPath("make")
 	projects := map[string][]string{
-		"module-only": nil,
+		"module-only": {"--starter", "module"},
 		"service":     {"--http", "nethttp", "--database", "sqlite", "--cli", "flag"},
 	}
 	for name, features := range projects {
@@ -65,7 +65,7 @@ func TestToolingVariants(t *testing.T) {
 					fmt.Sprintf("--makefile=%t", makefile), fmt.Sprintf("--actions=%t", actions)}, features...)
 				mustRubric(t, args...)
 				assertGuidancePaths(t, root)
-				if features != nil {
+				if name != "module-only" {
 					mustCommand(t, root, nil, "go", "mod", "tidy")
 				}
 				if !makefile && !actions && !lint {
@@ -80,7 +80,7 @@ func TestToolingVariants(t *testing.T) {
 				}
 				for _, op := range ops {
 					out := mustCommand(t, root, nil, "sh", ".rubric/check.sh", op)
-					if features == nil && op != "lint" && !strings.Contains(out, "no application packages") {
+					if name == "module-only" && op != "lint" && !strings.Contains(out, "no application packages") {
 						t.Fatalf("module-only %s did not report missing packages:\n%s", op, out)
 					}
 				}

@@ -13,7 +13,7 @@ import (
 
 func TestConfig(t *testing.T) {
 	c := Config()
-	if c.Project.Module != "example.com/demo" || c.Project.Name != "demo" || c.Project.Starter != "module" {
+	if c.Project.Module != "example.com/demo" || c.Project.Name != "demo" || c.Project.Starter != "runnable" {
 		t.Fatalf("config = %+v", c.Project)
 	}
 }

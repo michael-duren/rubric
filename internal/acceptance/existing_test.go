@@ -131,7 +131,7 @@ func TestStalePreviewRefusesWrite(t *testing.T) {
 func TestLiteralPathCharacters(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "odd $HOME `id` \"q\" 'single' dir")
 	mustRubric(t, "init", root, "--module", "example.com/odd", "--starter", "runnable", "--makefile", "--actions", "--lint")
-	if _, err := os.Stat(filepath.Join(root, "main.go")); err != nil {
+	if _, err := os.Stat(filepath.Join(root, "cmd", "odd", "main.go")); err != nil {
 		t.Fatal(err)
 	}
 	if os.Getenv("RUBRIC_ACCEPTANCE") == "1" {

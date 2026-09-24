@@ -58,7 +58,7 @@ func TestGeneratedConfigPlacement(t *testing.T) {
 		}
 	}
 	files := render1("runnable", features(func(f *config.Features) { f.Config = "viper" }))
-	if !strings.Contains(string(testproject.File(t, files, "main.go")), "config.Load(") {
+	if !strings.Contains(string(testproject.File(t, files, "cmd/demo/main.go")), "config.Load(") {
 		t.Fatal("runnable main does not load Viper settings")
 	}
 	mod := string(testproject.File(t, files, "go.mod"))

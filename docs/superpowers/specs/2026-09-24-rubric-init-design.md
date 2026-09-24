@@ -79,11 +79,18 @@ Every new project receives `go.mod`, `README.md`, `rubric.yaml`, `AGENTS.md`, an
 the small Rubric ownership manifest described below. Optional tooling adds only
 its own required files.
 
-With no capabilities selected, users choose either:
+With no HTTP, CLI, or TUI executable selected, users choose either:
 
-1. **Module-only:** no application Go files and no empty test files.
-2. **Minimal runnable:** add a thin root `main.go`; no test is required for that
-   file. If behavior grows beyond entry-point wiring, place it in a tested package.
+1. **Minimal runnable (default):** add a thin `cmd/<name>/main.go`, where `<name>` is
+   the last module path element made path-safe (`app` when nothing usable remains). It
+   loads settings and opens the store when those are selected; no test is required for
+   that file. If behavior grows beyond entry-point wiring, place it in a tested package.
+2. **Module-only:** no application Go files and no empty test files.
+
+(Amended 2026-09-24 at the user's request: every generated project has an executable
+under `cmd/` unless module-only is explicitly chosen. Existing projects adopted without
+a saved starter keep module-only semantics, so guidance never describes user code as
+Rubric scaffolding.)
 
 Selecting executable components creates separate binaries:
 
@@ -188,8 +195,8 @@ is needed in v1.
 
 A new project requires a module path; its display name defaults to the last path
 component and its description is optional. Other selections use the documented
-defaults unless supplied. With no application capability selected, default to the
-module-only starter. Tooling toggles default to disabled; the wizard makes their
+defaults unless supplied. With no executable selected, default to the minimal
+runnable starter. Tooling toggles default to disabled; the wizard makes their
 availability explicit, and unattended use has the same defaults.
 
 Exit status is 0 for successful application or a valid conflict-free dry run,
@@ -413,7 +420,7 @@ test suite can shard and cache dependency downloads, but testing each template
 in isolation does not replace checking their supported compositions.
 
 Check both minimal starters explicitly. A module-only project is validated as a
-module with no application packages; a root-main-only starter is built and does
+module with no application packages; a `cmd/<name>`-only starter is built and does
 not require an artificial test. For all other combinations, confirm that
 non-exempt code has behavioral tests. Run selected linting and any sqlc generation
 checks, and verify that regeneration is stable. Exercise real PostgreSQL queries

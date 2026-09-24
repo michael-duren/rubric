@@ -32,7 +32,7 @@ standard input or output is not a terminal, `--non-interactive` is set,
 | `--module` | module path | Required for new projects. Plain local names such as `app` are accepted. |
 | `--name` | text | Display name; defaults to the last module path element. |
 | `--description` | text | Project description, stored as literal text. |
-| `--starter` | `module` (default), `runnable` | Starter used when no HTTP, CLI, or TUI executable is selected. |
+| `--starter` | `runnable` (default), `module` | Used when no HTTP, CLI, or TUI executable is selected. `runnable` adds `cmd/<module-name>/main.go` (it opens the store or loads settings when those are selected); `module` generates no Go files. |
 | `--http` | `none`, `nethttp`, `chi` | HTTP server in `cmd/server` and `internal/httpserver`. |
 | `--database` | `none`, `sqlite`, `postgres` | Database support in `internal/store`. |
 | `--access` | `sql` (default with a database), `sqlc` | Handwritten `database/sql` or sqlc-generated queries. |
@@ -65,11 +65,11 @@ module path and Go version for existing projects; Rubric never rewrites it.
 
 ## Examples
 
-A module-only starter, then a minimal runnable starter:
+The default starter with a `cmd/my-app/main.go` executable, then a module-only starter with no Go files:
 
 ```sh
 rubric init my-app --module example.com/my-app
-rubric init my-app --module example.com/my-app --starter runnable
+rubric init my-app --module example.com/my-app --starter module
 ```
 
 A service with every executable, SQLite through sqlc, Viper settings, and tooling:

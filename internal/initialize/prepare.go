@@ -70,6 +70,9 @@ func Prepare(ctx context.Context, req Request) (plan.Plan, error) {
 		if err := reconcileExisting(&cfg, previous, facts, explicit, savedCommands); err != nil {
 			return plan.Plan{}, err
 		}
+		if _, saved := saved.Values["project.starter"]; !saved && !explicit("project.starter") {
+			cfg.Project.Starter = "module"
+		}
 	} else {
 		cfg.Evidence = []config.Evidence{}
 		if !explicit("commands") && !savedCommands {

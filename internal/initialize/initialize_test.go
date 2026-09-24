@@ -76,7 +76,7 @@ func TestNewProjectIntoMissingDirectory(t *testing.T) {
 	if p.Mode != "new" {
 		t.Fatalf("mode = %s", p.Mode)
 	}
-	want := []string{".rubric/manifest.json", ".rubric/style.md", "AGENTS.md", "README.md", "go.mod", "rubric.yaml"}
+	want := []string{".rubric/manifest.json", ".rubric/style.md", "AGENTS.md", "README.md", "cmd/demo/main.go", "go.mod", "rubric.yaml"}
 	if !slices.Equal(paths(p, plan.StateCreate), want) {
 		t.Fatalf("created = %v", paths(p, plan.StateCreate))
 	}
@@ -298,7 +298,7 @@ func TestRerunDropsCommandsOfDisabledTooling(t *testing.T) {
 		t.Fatalf("stale lint command kept: %v", commandNames(p.Config.Commands))
 	}
 	p = mustPrepare(t, Request{Target: root, Mode: "auto", Overrides: config.Patch{"tooling.makefile": true}})
-	if !slices.Contains(commandNames(p.Config.Commands), "lint") || !slices.Contains(commandNames(p.Config.Commands), "run") {
+	if !slices.Contains(commandNames(p.Config.Commands), "lint") || !slices.Contains(commandNames(p.Config.Commands), "run-demo") {
 		t.Fatalf("commands lost: %v", commandNames(p.Config.Commands))
 	}
 }
@@ -376,6 +376,32 @@ func TestMarkerTextRejected(t *testing.T) {
 		put(t, root, "go.mod", "module example.com/demo\n\ngo 1.26.7\n")
 		if _, err := Prepare(context.Background(), Request{Target: root, Mode: "auto", Overrides: patch}); !isInputError(err) {
 			t.Fatalf("%v accepted: %v", patch, err)
+		}
+	}
+}
+
+func TestAdoptedProjectGuidanceDescribesUserEntryPoints(t *testing.T) {
+	for _, layout := range []map[string]string{
+		{"main.go": "package main\n\nfunc main() {}\n"},
+		{"cmd/foo/main.go": "package main\n\nfunc main() {}\n"},
+	} {
+		root := t.TempDir()
+		put(t, root, "go.mod", "module example.com/foo\n\ngo 1.26.7\n")
+		for name, body := range layout {
+			put(t, root, name, body)
+		}
+		p := mustPrepare(t, Request{Target: root, Mode: "auto"})
+		if p.Config.Project.Starter != "module" {
+			t.Fatalf("adopted project recorded starter %q", p.Config.Project.Starter)
+		}
+		for _, a := range p.Actions {
+			if a.File.Path != "AGENTS.md" {
+				continue
+			}
+			text := string(a.File.Data)
+			if strings.Contains(text, "minimal entry point") || strings.Contains(text, "wiring only") || !strings.Contains(text, "executable entry point") {
+				t.Fatalf("guidance makes claims about user code:\n%s", text)
+			}
 		}
 	}
 }

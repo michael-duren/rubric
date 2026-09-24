@@ -46,7 +46,7 @@ type output struct {
 
 var outputs = []output{
 	{path: "go.mod", template: "base/go.mod.tmpl", kind: KindScaffold, when: isNew},
-	{path: "main.go", template: "base/main.go.tmpl", kind: KindScaffold, when: rootMain},
+	{path: "cmd/{starter}/main.go", template: "base/main.go.tmpl", kind: KindScaffold, when: rootMain},
 	{path: "README.md", template: "base/README.md.tmpl", kind: KindScaffold, when: isNew},
 	{path: "AGENTS.md", kind: KindGuidance, when: always, build: Instructions},
 	{path: ".rubric/style.md", template: "base/style.md.tmpl", kind: KindManaged, when: always},
@@ -68,7 +68,7 @@ func isNew(_ config.Config, mode string) bool {
 }
 
 func rootMain(c config.Config, mode string) bool {
-	return mode == "new" && c.Project.Starter == "runnable"
+	return mode == "new" && c.Project.Starter == "runnable" && !executableSelected(c.Features)
 }
 
 // Files validates cfg for mode and renders every applicable file, sorted by path.
@@ -115,7 +115,8 @@ func Files(cfg config.Config, mode string) ([]File, error) {
 		if mode == 0 {
 			mode = 0o644
 		}
-		files = append(files, File{Path: out.path, Data: body, Mode: mode, Kind: out.kind})
+		path := strings.ReplaceAll(out.path, "{starter}", StarterName(cfg))
+		files = append(files, File{Path: path, Data: body, Mode: mode, Kind: out.kind})
 	}
 	extra, err := Tooling(cfg)
 	if err != nil {
@@ -167,4 +168,8 @@ func renderSource(tmpl *template.Template, value any) ([]byte, error) {
 		return nil, err
 	}
 	return format.Source(buf.Bytes())
+}
+
+func executableSelected(f config.Features) bool {
+	return f.HTTP != "none" || f.CLI != "none" || f.TUI != "none"
 }
