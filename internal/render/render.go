@@ -28,6 +28,7 @@ type data struct {
 	Config   config.Config
 	Mode     string
 	Requires []require
+	Commands []commandView
 }
 
 type output struct {
@@ -36,14 +37,27 @@ type output struct {
 	kind     string
 	mode     fs.FileMode
 	when     func(config.Config, string) bool
+	build    func(config.Config, string) ([]byte, error)
 }
 
 var outputs = []output{
 	{path: "go.mod", template: "base/go.mod.tmpl", kind: KindScaffold, when: isNew},
 	{path: "main.go", template: "base/main.go.tmpl", kind: KindScaffold, when: rootMain},
+	{path: "README.md", template: "base/README.md.tmpl", kind: KindScaffold, when: isNew},
+	{path: "AGENTS.md", kind: KindGuidance, when: always, build: Instructions},
+	{path: ".rubric/style.md", template: "base/style.md.tmpl", kind: KindManaged, when: always},
+	{path: "rubric.yaml", kind: KindConfig, when: always, build: encodeConfig},
 }
 
 var funcs = template.FuncMap{"quote": strconv.Quote}
+
+func always(config.Config, string) bool {
+	return true
+}
+
+func encodeConfig(c config.Config, _ string) ([]byte, error) {
+	return config.Encode(config.Document{}, c)
+}
 
 func isNew(_ config.Config, mode string) bool {
 	return mode == "new"
@@ -58,14 +72,14 @@ func Files(cfg config.Config, mode string) ([]File, error) {
 	if err := config.Validate(cfg, mode); err != nil {
 		return nil, fmt.Errorf("render: %w", err)
 	}
-	d := data{Config: cfg, Mode: mode}
+	cfg, err := Normalize(cfg, mode)
+	if err != nil {
+		return nil, fmt.Errorf("render: %w", err)
+	}
+	d := data{Config: cfg, Mode: mode, Commands: commandViews(cfg.Commands)}
 	if mode == "new" {
-		deps, err := catalog.Dependencies(cfg.Features)
-		if err != nil {
-			return nil, fmt.Errorf("render: %w", err)
-		}
-		for _, p := range slices.Sorted(maps.Keys(deps)) {
-			d.Requires = append(d.Requires, require{Path: p, Version: deps[p]})
+		for _, p := range slices.Sorted(maps.Keys(cfg.Generator.Dependencies)) {
+			d.Requires = append(d.Requires, require{Path: p, Version: cfg.Generator.Dependencies[p]})
 		}
 	}
 	var files []File
@@ -73,7 +87,13 @@ func Files(cfg config.Config, mode string) ([]File, error) {
 		if !out.when(cfg, mode) {
 			continue
 		}
-		body, err := execute(out.template, d)
+		var body []byte
+		var err error
+		if out.build != nil {
+			body, err = out.build(cfg, mode)
+		} else {
+			body, err = execute(out.template, d)
+		}
 		if err != nil {
 			return nil, fmt.Errorf("render %s: %w", out.path, err)
 		}
@@ -84,6 +104,20 @@ func Files(cfg config.Config, mode string) ([]File, error) {
 		files = append(files, File{Path: out.path, Data: body, Mode: mode, Kind: out.kind})
 	}
 	return finish(files)
+}
+
+// Normalize derives entry points, commands, and pinned dependencies once so every artifact shares them.
+func Normalize(cfg config.Config, mode string) (config.Config, error) {
+	cfg.EntryPoints = EntryPoints(cfg, mode)
+	cfg.Commands = Commands(cfg, mode)
+	if mode == "new" {
+		deps, err := catalog.Dependencies(cfg.Features)
+		if err != nil {
+			return cfg, err
+		}
+		cfg.Generator.Dependencies = deps
+	}
+	return cfg, nil
 }
 
 func execute(name string, value any) ([]byte, error) {

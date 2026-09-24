@@ -1,0 +1,13 @@
+# {{.Config.Project.Name}}
+{{if .Config.Project.Description}}
+{{.Config.Project.Description}}
+{{end}}
+Module `{{.Config.Project.Module}}`, Go {{.Config.Project.Go}}.
+{{if .Commands}}
+## Commands
+
+{{range .Commands}}- {{.Name}}: `{{.Line}}`{{if .Env}} (requires {{.Env}}){{end}}
+{{end}}{{else}}
+This module has no application packages yet.
+{{end}}
+Agent guidance lives in `AGENTS.md`; project settings live in `rubric.yaml`.

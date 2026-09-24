@@ -1,0 +1,27 @@
+# Go style policy ({{.Config.Style}})
+
+Rubric manages this file. Rules apply in this order:
+
+1. The project overrides below.
+2. [Go Code Review Comments](https://go.dev/wiki/CodeReviewComments).
+3. The [Formatting and style section of Go: Best Practices for Production Environments](https://peter.bourgon.org/go-in-production/#formatting-and-style).
+4. The [Uber Go Style Guide](https://github.com/uber-go/guide/blob/master/style.md), where compatible with the above.
+
+## Overrides
+
+- Do not add explanatory inline or trailing comments in Go code.
+- Exported application symbols require documentation comments.
+- A declaration's documentation comment has at most two physical lines, each containing at most
+  150 Unicode characters, including its comment delimiter.
+
+## Exclusions
+
+- Build constraints (`//go:build`) and Go directives such as `//go:embed` and `//go:generate` are required by tools;
+  they are not explanatory comments or declaration documentation.
+- Recognized third-party generated code (files marked `// Code generated ... DO NOT EDIT.`) keeps its generator-owned comments.
+- Test functions are not exported application API merely because their names start with `Test`.
+
+## Formatting
+
+Format with `gofmt`. Line length is a readability guideline, not a hard limit.
+Passing lint does not prove every subjective recommendation in these guides was followed.
