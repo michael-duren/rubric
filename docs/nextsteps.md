@@ -16,11 +16,10 @@ Shipped on `main`:
 - Repository hygiene: branch protection script and ruleset (#3), path-filtered CI behind one required
   gate (#4, #7), squash-only merges, branches deleted after merge.
 
-In review:
-
-- #8 vendors [pstack](https://github.com/cursor/plugins/tree/main/pstack) into `.agents/skills/` here and
-  into projects generated with `--skills`. pstack's `create-verification-skill` and
-  `maintain-verification-skill` are the starting point for feature maps.
+- pstack (#8): [pstack](https://github.com/cursor/plugins/tree/main/pstack) skills vendored into
+  `.agents/skills/` here and into projects generated with `--skills`, via `scripts/vendor-pstack.sh`.
+  pstack's `create-verification-skill` and `maintain-verification-skill` are the starting point for
+  feature maps.
 
 Verification today: `go test -race ./...`, golangci-lint, and an acceptance suite that generates every
 supported configuration and runs its build, tests, coverage check, and a rerun no-op check.
@@ -147,3 +146,14 @@ Minor findings accepted during reviews, not yet fixed:
   same-site requests.
 - The generated Bubble Tea application is unstyled.
 - Retargeting a pull request's base branch does not rerun CI.
+- pstack (#8 review):
+  - Unprefixed pstack skill names (`tdd`, `why`, `how`, `recall`, ...) collide with same-named skills in
+    existing repositories; `rubric init --skills` then stops on the conflict. Safe, but the user must move
+    their skill. Consider skipping clashing pstack skills separately.
+  - CI change detection does not treat `.agents/` as Go-relevant, so a hand edit there skips the drift test.
+  - The drift test compares one direction only; stale extra files, or skills removed upstream, go unnoticed.
+  - Leftover references: `poteto-mode` mentions `/setup-pstack`, `principle-type-system-discipline` names
+    `typescript-best-practices`, and a few Cursor runtime paths remain.
+  - `THIRD_PARTY_NOTICES.md` says every non-`rubric-*` skill is from pstack, which is wrong in repositories
+    that have their own skills. Listing the vendored skill names would be exact.
+  - `scripts/vendor-pstack.sh` needs GNU `sed` and `tar`.
