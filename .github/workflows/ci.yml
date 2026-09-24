@@ -95,13 +95,13 @@ jobs:
         with:
           go-version-file: go.mod
       - name: Generated project matrix shard
-        run: go test -timeout 45m -run 'TestAcceptanceMatrix' ./internal/acceptance -v
+        run: go test -count=1 -timeout 45m -run 'TestAcceptanceMatrix' ./internal/acceptance -v
       - name: Install Playwright browsers
         if: matrix.shard == 0
         run: go run github.com/mxschmitt/playwright-go/cmd/playwright@v0.6201.1 install --with-deps chromium
       - name: Tooling, database, terminal, browser, and coverage acceptance
         if: matrix.shard == 0
-        run: go test -timeout 45m -skip 'TestAcceptanceMatrix' ./internal/acceptance ./internal/render -v
+        run: go test -count=1 -timeout 45m -skip 'TestAcceptanceMatrix' ./internal/acceptance ./internal/render -v
 
   scripts:
     name: "Shell scripts: syntax & ShellCheck"
