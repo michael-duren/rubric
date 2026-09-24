@@ -30,7 +30,8 @@ type data struct {
 	Requires []require
 	Commands []commandView
 
-	HTTP, SQLite, Postgres, Viper, ConfigPackage bool
+	HTTP, SQLite, Postgres, Viper, ConfigPackage, Database bool
+	Driver, DriverImport                                   string
 }
 
 type output struct {
@@ -83,13 +84,16 @@ func Files(cfg config.Config, mode string) ([]File, error) {
 		HTTP: cfg.Features.HTTP != "none", SQLite: cfg.Features.Database == "sqlite", Postgres: cfg.Features.Database == "postgres",
 		Viper: cfg.Features.Config == "viper", ConfigPackage: configPackage(cfg),
 	}
+	if drv, ok := drivers[cfg.Features.Database]; ok {
+		d.Database, d.Driver, d.DriverImport = true, drv.name, "_ "+strconv.Quote(drv.pkg)
+	}
 	if mode == "new" {
 		for _, p := range slices.Sorted(maps.Keys(cfg.Generator.Dependencies)) {
 			d.Requires = append(d.Requires, require{Path: p, Version: cfg.Generator.Dependencies[p]})
 		}
 	}
 	var files []File
-	for _, out := range slices.Concat(outputs, httpOutputs, cliOutputs, tuiOutputs, configOutputs) {
+	for _, out := range slices.Concat(outputs, httpOutputs, cliOutputs, tuiOutputs, configOutputs, databaseOutputs) {
 		if !out.when(cfg, mode) {
 			continue
 		}

@@ -14,6 +14,7 @@ const (
 	cobra     = "github.com/spf13/cobra"
 	bubbletea = "charm.land/bubbletea/v2"
 	viper     = "github.com/spf13/viper"
+	sqlmock   = "github.com/DATA-DOG/go-sqlmock"
 )
 
 var versions = map[string]string{
@@ -23,6 +24,7 @@ var versions = map[string]string{
 	cobra:     "v1.10.2",
 	bubbletea: "v2.0.9",
 	viper:     "v1.21.0",
+	sqlmock:   "v1.5.2",
 }
 
 var choices = map[string]map[string]string{
@@ -48,6 +50,9 @@ func Dependencies(f config.Features) (map[string]string, error) {
 		if module != "" {
 			deps[module] = versions[module]
 		}
+	}
+	if f.Database == "postgres" {
+		deps[sqlmock] = versions[sqlmock]
 	}
 	return deps, nil
 }

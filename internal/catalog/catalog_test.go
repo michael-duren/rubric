@@ -46,11 +46,12 @@ func TestDependencies(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := map[string]string{
-		"github.com/go-chi/chi/v5": "v5.3.2",
-		"github.com/jackc/pgx/v5":  "v5.11.0",
-		"github.com/spf13/cobra":   "v1.10.2",
-		"charm.land/bubbletea/v2":  "v2.0.9",
-		"github.com/spf13/viper":   "v1.21.0",
+		"github.com/go-chi/chi/v5":       "v5.3.2",
+		"github.com/jackc/pgx/v5":        "v5.11.0",
+		"github.com/spf13/cobra":         "v1.10.2",
+		"charm.land/bubbletea/v2":        "v2.0.9",
+		"github.com/spf13/viper":         "v1.21.0",
+		"github.com/DATA-DOG/go-sqlmock": "v1.5.2",
 	}
 	if !maps.Equal(got, want) {
 		t.Fatalf("got %v", got)

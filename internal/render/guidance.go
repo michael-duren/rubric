@@ -107,9 +107,7 @@ func layout(c config.Config, mode string) []string {
 				fmt.Sprintf("`%s`: %s behavior and its tests", e.pkg, e.name))
 		}
 	}
-	if c.Features.Database != "none" {
-		out = append(out, "`internal/store`: database access and its tests")
-	}
+	out = append(out, databaseGuidance(c)...)
 	if configPackage(c) {
 		out = append(out, "`internal/config`: runtime settings loading and its tests")
 	}

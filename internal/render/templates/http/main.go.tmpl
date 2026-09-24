@@ -2,14 +2,22 @@ package main
 
 import (
 	"context"
+{{- if .Database}}
+	"errors"
+{{- end}}
 	"fmt"
 	"net"
 	"os"
 	"os/signal"
 	"syscall"
-
+{{if .Database}}
+	{{.DriverImport}}
+{{end}}
 	{{quote (print .Config.Project.Module "/internal/config")}}
 	{{quote (print .Config.Project.Module "/internal/httpserver")}}
+{{- if .Database}}
+	{{quote (print .Config.Project.Module "/internal/store")}}
+{{- end}}
 )
 
 func main() {
@@ -22,14 +30,23 @@ func main() {
 	}
 }
 
-func run(ctx context.Context) error {
+func run(ctx context.Context) {{if .Database}}(err error){{else}}error{{end}} {
 	settings, err := config.Load(os.Getenv("APP_CONFIG_FILE"), os.LookupEnv)
 	if err != nil {
 		return err
 	}
+{{- if .Database}}
+	st, err := store.Open(settings.DatabaseURL)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		err = errors.Join(err, st.Close())
+	}()
+{{- end}}
 	l, err := net.Listen("tcp", settings.HTTPAddr)
 	if err != nil {
 		return err
 	}
-	return httpserver.Serve(ctx, l, nil)
+	return httpserver.Serve(ctx, l, {{if .Database}}st.Ping{{else}}nil{{end}})
 }

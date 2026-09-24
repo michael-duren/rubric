@@ -8,8 +8,14 @@ import (
 	"os/signal"
 
 	tea "charm.land/bubbletea/v2"
+{{- if .Database}}
+	{{.DriverImport}}
+{{- end}}
 
 	{{quote (print .Config.Project.Module "/internal/config")}}
+{{- if .Database}}
+	{{quote (print .Config.Project.Module "/internal/store")}}
+{{- end}}
 	{{quote (print .Config.Project.Module "/internal/tui")}}
 )
 
@@ -23,11 +29,27 @@ func main() {
 	}
 }
 
-func run(ctx context.Context) error {
+func run(ctx context.Context) {{if .Database}}(err error){{else}}error{{end}} {
+{{- if .Database}}
+	settings, err := config.Load(os.Getenv("APP_CONFIG_FILE"), os.LookupEnv)
+	if err != nil {
+		return err
+	}
+	st, err := store.Open(settings.DatabaseURL)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		err = errors.Join(err, st.Close())
+	}()
+	check := st.Ping
+{{- else}}
 	if _, err := config.Load(os.Getenv("APP_CONFIG_FILE"), os.LookupEnv); err != nil {
 		return err
 	}
-	_, err := tea.NewProgram(tui.New(ctx, nil), tea.WithContext(ctx)).Run()
+	var check func(context.Context) error
+{{- end}}
+	_, err {{if not .Database}}:{{end}}= tea.NewProgram(tui.New(ctx, check), tea.WithContext(ctx)).Run()
 	if errors.Is(err, tea.ErrProgramKilled) || errors.Is(err, tea.ErrInterrupted) {
 		return nil
 	}

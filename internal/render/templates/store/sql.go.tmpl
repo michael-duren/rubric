@@ -1,0 +1,14 @@
+package store
+{{if .SQLite}}
+const (
+	driverName = "sqlite"
+	getSQL     = "SELECT value FROM entries WHERE key = ?"
+	putSQL     = "INSERT INTO entries (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value"
+)
+{{else}}
+const (
+	driverName = "pgx"
+	getSQL     = "SELECT value FROM entries WHERE key = $1"
+	putSQL     = "INSERT INTO entries (key, value) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value = excluded.value"
+)
+{{end -}}

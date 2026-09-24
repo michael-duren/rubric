@@ -43,8 +43,19 @@ func Commands(c config.Config, mode string) []config.Command {
 		}
 		derived = append(derived, goCommand("build", "build", "./..."), goCommand("test", "test", "./..."))
 	}
+	postgres := mode == "new" && c.Features.Database == "postgres"
+	if postgres {
+		derived = append(derived, config.Command{
+			Name: "test-integration", Dir: ".", Argv: []string{"go", "test", "-tags", "integration", "./internal/store/..."},
+			Env: []string{"TEST_DATABASE_URL"},
+		})
+	}
 	for _, ep := range EntryPoints(c, mode) {
-		derived = append(derived, runCommand(runName(ep), runTarget(ep.Dir)))
+		run := runCommand(runName(ep), runTarget(ep.Dir))
+		if postgres {
+			run.Env = []string{"APP_DATABASE_URL"}
+		}
+		derived = append(derived, run)
 	}
 	out := []config.Command{}
 	for _, cmd := range derived {
