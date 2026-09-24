@@ -6,6 +6,10 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+{{- if .Web}}
+
+	{{quote (print .Config.Project.Module "/internal/web")}}
+{{- end}}
 )
 
 // New returns the service's HTTP handler; ready checks external dependencies and may be nil.
@@ -13,5 +17,12 @@ func New(ready func(context.Context) error) http.Handler {
 	r := chi.NewRouter()
 	r.Get("/healthz", health)
 	r.Get("/readyz", readiness(ready))
+{{- if .Web}}
+	ui := web.New({{quote .Config.Project.Name}})
+	r.Get("/", ui.Page)
+	r.Post("/increment", ui.Increment)
+	r.Get("/static/*", ui.Static)
+	r.Head("/static/*", ui.Static)
+{{- end}}
 	return r
 }

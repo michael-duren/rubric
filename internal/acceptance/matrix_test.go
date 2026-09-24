@@ -78,7 +78,7 @@ type appCase struct {
 
 func (c appCase) name() string {
 	f := c.features
-	return fmt.Sprintf("%03d-%s-%s-%s-%s-%s-%s-%s", c.index, c.starter, f.HTTP, f.Database, f.Access, f.CLI, f.TUI, f.Config)
+	return fmt.Sprintf("%03d-%s-%s-%s-%s-%s-%s-%s-%s-%s", c.index, c.starter, f.HTTP, f.Database, f.Access, f.CLI, f.TUI, f.Config, f.Web, f.E2E)
 }
 
 func executables(f config.Features) bool {
@@ -104,8 +104,15 @@ func (c appCase) flags(target string) []string {
 	return []string{
 		"init", target, "--non-interactive", "--module", "example.com/case" + strconv.Itoa(c.index),
 		"--starter", c.starter, "--http", f.HTTP, "--database", f.Database, "--access", accessFlag(f),
-		"--cli", f.CLI, "--tui", f.TUI, "--app-config", f.Config,
+		"--cli", f.CLI, "--tui", f.TUI, "--app-config", f.Config, "--web", noneIfEmpty(f.Web), "--e2e", noneIfEmpty(f.E2E),
 	}
+}
+
+func noneIfEmpty(v string) string {
+	if v == "" {
+		return "none"
+	}
+	return v
 }
 
 func accessFlag(f config.Features) string {
@@ -132,11 +139,11 @@ func inShard(index int) bool {
 }
 
 func TestCatalogMatrixSize(t *testing.T) {
-	if got := len(catalog.Cases()); got != 180 {
-		t.Fatalf("catalog cases=%d, want 180", got)
+	if got := len(catalog.Cases()); got != 420 {
+		t.Fatalf("catalog cases=%d, want 420", got)
 	}
-	if got := len(appCases()); got != 190 {
-		t.Fatalf("application cases=%d, want 190", got)
+	if got := len(appCases()); got != 430 {
+		t.Fatalf("application cases=%d, want 430", got)
 	}
 }
 

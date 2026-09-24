@@ -207,6 +207,29 @@ func TestToolingPostgresWorkflow(t *testing.T) {
 	}
 }
 
+func TestToolingPlaywrightWorkflow(t *testing.T) {
+	f := features(func(f *config.Features) { f.HTTP, f.Web, f.E2E = "chi", "htmx", "playwright" })
+	for _, makefile := range []bool{false, true} {
+		_, files := renderTooling(t, "new", f, config.Tooling{Actions: true, Makefile: makefile})
+		w := parseWorkflow(t, testproject.File(t, files, ".github/workflows/ci.yml"))
+		for _, job := range w.Jobs {
+			var install, run, templ bool
+			for _, s := range job.Steps {
+				templ = templ || strings.Contains(s.Run, "generate-templ") && strings.Contains(s.Run, "--exit-code")
+				install = install || strings.Contains(s.Run, "github.com/mxschmitt/playwright-go/cmd/playwright@v0.6201.1 install --with-deps chromium")
+				run = run || strings.Contains(s.Run, "test-e2e")
+			}
+			if !install || !run || !templ {
+				t.Fatalf("makefile=%v steps = %+v", makefile, job.Steps)
+			}
+		}
+	}
+	_, files := renderTooling(t, "new", features(func(f *config.Features) { f.HTTP, f.Web = "chi", "htmx" }), config.Tooling{Actions: true})
+	if strings.Contains(string(testproject.File(t, files, ".github/workflows/ci.yml")), "playwright") {
+		t.Fatal("workflow installs browsers without Playwright selected")
+	}
+}
+
 func TestToolingSkills(t *testing.T) {
 	for _, lint := range []bool{false, true} {
 		_, files := renderTooling(t, "new", features(func(f *config.Features) { f.CLI = "flag" }), config.Tooling{Skills: true, Lint: lint})

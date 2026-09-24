@@ -1,0 +1,74 @@
+// Package web serves the htmx and Alpine.js user interface rendered with templ.
+package web
+
+import (
+	"embed"
+	"io/fs"
+	"net/http"
+	"strings"
+	"sync"
+
+	"github.com/a-h/templ"
+)
+
+//go:embed static
+var assets embed.FS
+
+// Handler serves the page, its htmx fragments, and the bundled static assets.
+type Handler struct {
+	title string
+	files http.Handler
+	csrf  *http.CrossOriginProtection
+	mu    sync.Mutex
+	count int
+}
+
+// New returns a Handler whose page is titled title.
+func New(title string) *Handler {
+	static, err := fs.Sub(assets, "static")
+	if err != nil {
+		panic(err)
+	}
+	return &Handler{
+		title: title,
+		files: http.StripPrefix("/static/", http.FileServerFS(static)),
+		csrf:  http.NewCrossOriginProtection(),
+	}
+}
+
+// Page renders the full page with the current counter value.
+func (h *Handler) Page(w http.ResponseWriter, r *http.Request) {
+	h.mu.Lock()
+	count := h.count
+	h.mu.Unlock()
+	render(w, r, page(h.title, count))
+}
+
+// Increment adds one to the counter and returns the updated counter fragment; cross-origin requests are rejected.
+func (h *Handler) Increment(w http.ResponseWriter, r *http.Request) {
+	if err := h.csrf.Check(r); err != nil {
+		http.Error(w, "cross-origin request rejected", http.StatusForbidden)
+		return
+	}
+	h.mu.Lock()
+	h.count++
+	count := h.count
+	h.mu.Unlock()
+	render(w, r, counter(count))
+}
+
+// Static serves the bundled htmx and Alpine.js files beneath /static/ without directory listings.
+func (h *Handler) Static(w http.ResponseWriter, r *http.Request) {
+	if strings.HasSuffix(r.URL.Path, "/") {
+		http.NotFound(w, r)
+		return
+	}
+	h.files.ServeHTTP(w, r)
+}
+
+func render(w http.ResponseWriter, r *http.Request, c templ.Component) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err := c.Render(r.Context(), w); err != nil {
+		http.Error(w, "render failed", http.StatusInternalServerError)
+	}
+}

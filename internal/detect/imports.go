@@ -25,6 +25,7 @@ var importCapabilities = map[string]capability{
 	"charm.land/bubbletea/v2":            {"features.tui", "bubbletea"},
 	"github.com/charmbracelet/bubbletea": {"features.tui", "bubbletea"},
 	"github.com/spf13/viper":             {"features.config", "viper"},
+	"github.com/a-h/templ":               {"features.web", "templ"},
 }
 
 var serverCalls = map[string]map[string]string{

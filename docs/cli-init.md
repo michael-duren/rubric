@@ -39,6 +39,8 @@ standard input or output is not a terminal, `--non-interactive` is set,
 | `--cli` | `none`, `flag`, `cobra` | Command-line executable in `cmd/cli` and `internal/cli`. |
 | `--tui` | `none`, `bubbletea` | Terminal UI in `cmd/tui` and `internal/tui`. |
 | `--app-config` | `stdlib` (default), `viper` | Runtime settings in `internal/config`. Viper does not require Cobra. |
+| `--web` | `none`, `htmx` | Server-rendered UI in `internal/web`: templ views, htmx requests, and Alpine.js behavior. Requires `--http`. |
+| `--e2e` | `none`, `playwright` | Playwright browser tests in `e2e/` (build tag `e2e`). Requires `--web htmx`. |
 | `--skills` | boolean | Add `.agents/skills/rubric-*/SKILL.md`. |
 | `--lint` | boolean | Add `.golangci.yml`, the comment analyzer in `.rubric/style`, and a `lint` check. |
 | `--makefile` | boolean | Add a `Makefile` whose targets call `.rubric/check.sh`. |
@@ -74,6 +76,12 @@ A service with every executable, SQLite through sqlc, Viper settings, and toolin
 
 ```sh
 rubric init my-app --module example.com/my-app --http chi --cli cobra --tui bubbletea --database sqlite --access sqlc --app-config viper --lint --makefile --actions --skills
+```
+
+An htmx, Alpine.js, and templ web UI with Playwright browser tests:
+
+```sh
+rubric init my-app --module example.com/my-app --http chi --web htmx --e2e playwright --makefile
 ```
 
 Library-only PostgreSQL support without an HTTP server:
@@ -129,6 +137,27 @@ With linting enabled, `sh .rubric/check.sh lint` runs `golangci-lint fmt --diff`
 
 sqlc projects regenerate queries with `sh .rubric/check.sh generate` (or
 `make generate`), which runs the pinned sqlc through `go run`.
+
+## Web UI and browser tests
+
+`--web htmx` adds `internal/web`: `views.templ` and its generated `views_templ.go`, handlers
+for the page and an htmx fragment, and pinned `htmx.min.js` and `alpine.min.js` served from
+`/static/` (licenses in `internal/web/static/THIRD_PARTY_LICENSES.md`). Nothing is loaded from
+a CDN. After editing `views.templ`, run the `generate-templ` command
+(`go run github.com/a-h/templ/cmd/templ@v0.3.1020 generate`). Unit tests exercise the
+handlers and rendered HTML without a browser.
+
+`--e2e playwright` adds `e2e/ui_test.go`, which drives Chromium through
+`github.com/mxschmitt/playwright-go`. Browser tests never run in the default `go test ./...`;
+install the browser once, then run them explicitly:
+
+```text
+go run github.com/mxschmitt/playwright-go/cmd/playwright@v0.6201.1 install chromium   # setup-e2e
+go test -tags e2e ./e2e/...                                                            # test-e2e
+```
+
+With GitHub Actions enabled, the workflow installs Chromium with its system dependencies,
+checks that `views_templ.go` is up to date, and runs the browser tests.
 
 ## Runtime settings and PostgreSQL
 

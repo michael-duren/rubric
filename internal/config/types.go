@@ -33,6 +33,8 @@ type Features struct {
 	CLI      string `yaml:"cli" json:"cli"`
 	TUI      string `yaml:"tui" json:"tui"`
 	Config   string `yaml:"config" json:"config"`
+	Web      string `yaml:"web" json:"web"`
+	E2E      string `yaml:"e2e" json:"e2e"`
 }
 
 // Tooling records which optional development tooling is enabled.

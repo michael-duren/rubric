@@ -24,17 +24,20 @@ type guide struct {
 }
 
 var labels = map[string]string{
-	"nethttp":   "standard-library net/http",
-	"chi":       "Chi router",
-	"sqlite":    "SQLite (modernc.org/sqlite)",
-	"postgres":  "PostgreSQL (pgx)",
-	"sql":       "handwritten SQL with database/sql",
-	"sqlc":      "sqlc-generated queries",
-	"flag":      "standard-library flag",
-	"cobra":     "Cobra",
-	"bubbletea": "Bubble Tea v2",
-	"viper":     "Viper",
-	"stdlib":    "standard-library configuration",
+	"nethttp":    "standard-library net/http",
+	"chi":        "Chi router",
+	"sqlite":     "SQLite (modernc.org/sqlite)",
+	"postgres":   "PostgreSQL (pgx)",
+	"sql":        "handwritten SQL with database/sql",
+	"sqlc":       "sqlc-generated queries",
+	"flag":       "standard-library flag",
+	"cobra":      "Cobra",
+	"bubbletea":  "Bubble Tea v2",
+	"viper":      "Viper",
+	"stdlib":     "standard-library configuration",
+	"htmx":       "htmx and Alpine.js pages rendered with templ",
+	"templ":      "templ components",
+	"playwright": "Playwright browser tests (playwright-go)",
 }
 
 var plainWord = regexp.MustCompile(`^[A-Za-z0-9_./:=@%+,-]+$`)
@@ -86,12 +89,18 @@ func stack(c config.Config, mode string) []string {
 	if f.Config != "stdlib" || configPackage(c) && generated(c, mode, "internal/config") {
 		add("Configuration", f.Config)
 	}
+	add("Web UI", f.Web)
+	add("End-to-end tests", f.E2E)
 	return out
 }
 
 func configPackage(c config.Config) bool {
 	f := c.Features
 	return f.HTTP != "none" || f.CLI != "none" || f.TUI != "none" || f.Database != "none" || f.Config == "viper"
+}
+
+func hasCommand(c config.Config, name string) bool {
+	return slices.ContainsFunc(c.Commands, func(cmd config.Command) bool { return cmd.Name == name })
 }
 
 func hasPackage(c config.Config, dir string) bool {
@@ -119,6 +128,16 @@ func layout(c config.Config, mode string) []string {
 	}
 	if c.Features.Database != "none" && generated(c, mode, "internal/store") {
 		out = append(out, databaseGuidance(c)...)
+	}
+	if f := c.Features; f.Web == "htmx" && generated(c, mode, "internal/web") {
+		line := "`internal/web`: templ views, htmx handlers, bundled htmx and Alpine.js, and their tests"
+		if hasCommand(c, "generate-templ") {
+			line += "; edit `views.templ`, then run generate-templ"
+		}
+		out = append(out, line)
+	}
+	if c.Features.E2E == "playwright" && hasCommand(c, "test-e2e") {
+		out = append(out, "`e2e`: Playwright browser tests behind the `e2e` build tag; run setup-e2e once, then test-e2e")
 	}
 	if configPackage(c) && generated(c, mode, "internal/config") {
 		out = append(out, "`internal/config`: runtime settings loading and its tests")

@@ -192,6 +192,38 @@ func TestDisablingDatabaseClearsAccess(t *testing.T) {
 	}
 }
 
+func TestWebChoicesFollowHTTP(t *testing.T) {
+	m := start(t, initialize.Request{Target: t.TempDir(), Mode: "auto"}, realBackend())
+	m = drive(t, m, typeText("example.com/demo")...)
+	m = drive(t, m, enter)
+	if m.visible("features.web") || m.visible("features.e2e") {
+		t.Fatal("web choices shown without an HTTP server")
+	}
+	m = m.setChoice(t, "features.http", "chi")
+	m = m.setChoice(t, "features.web", "htmx")
+	m = m.setChoice(t, "features.e2e", "playwright")
+	m = drive(t, m, enter, enter)
+	if m.message != "" || m.plan.Config.Features.Web != "htmx" || m.plan.Config.Features.E2E != "playwright" {
+		t.Fatalf("message=%q features=%+v", m.message, m.plan.Config.Features)
+	}
+	m = drive(t, m, esc, esc)
+	m = m.setChoice(t, "features.http", "none")
+	if m.visible("features.web") || m.visible("features.e2e") {
+		t.Fatal("web choices still shown")
+	}
+	req := m.request()
+	if _, ok := req.Overrides["features.web"]; ok {
+		t.Fatal("stale web choice kept")
+	}
+	if _, ok := req.Overrides["features.e2e"]; ok {
+		t.Fatal("stale e2e choice kept")
+	}
+	m = drive(t, m, enter, enter)
+	if m.message != "" || m.plan.Config.Features.Web != "none" {
+		t.Fatalf("message=%q features=%+v", m.message, m.plan.Config.Features)
+	}
+}
+
 func TestStarterHiddenWithExecutables(t *testing.T) {
 	m := start(t, initialize.Request{Target: t.TempDir(), Mode: "auto"}, realBackend())
 	m = drive(t, m, typeText("example.com/demo")...)

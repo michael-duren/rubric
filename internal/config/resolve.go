@@ -40,6 +40,8 @@ var fields = map[string]field{
 	"features.cli":           stringField(func(c *Config) *string { return &c.Features.CLI }),
 	"features.tui":           stringField(func(c *Config) *string { return &c.Features.TUI }),
 	"features.config":        stringField(func(c *Config) *string { return &c.Features.Config }),
+	"features.web":           stringField(func(c *Config) *string { return &c.Features.Web }),
+	"features.e2e":           stringField(func(c *Config) *string { return &c.Features.E2E }),
 	"tooling":                {kind: kindSection},
 	"tooling.skills":         boolField(func(c *Config) *bool { return &c.Tooling.Skills }),
 	"tooling.lint":           boolField(func(c *Config) *bool { return &c.Tooling.Lint }),

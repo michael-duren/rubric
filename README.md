@@ -17,6 +17,7 @@ published yet; build it from this checkout:
 ```text
 go install ./cmd/rubric                  # or: go build -o ./bin/rubric ./cmd/rubric
 rubric init my-app --module example.com/my-app --http chi --lint --makefile
+rubric init my-web --module example.com/my-web --http chi --web htmx --e2e playwright
 ```
 
 In a terminal it opens a wizard; with `--non-interactive`, `--format json`, or redirected

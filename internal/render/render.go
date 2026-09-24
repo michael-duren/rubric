@@ -30,8 +30,8 @@ type data struct {
 	Requires []require
 	Commands []commandView
 
-	HTTP, SQLite, Postgres, Viper, ConfigPackage, Database, SQLC bool
-	Driver, DriverImport                                         string
+	HTTP, SQLite, Postgres, Viper, ConfigPackage, Database, SQLC, Web bool
+	Driver, DriverImport                                              string
 }
 
 type output struct {
@@ -83,7 +83,7 @@ func Files(cfg config.Config, mode string) ([]File, error) {
 	d := data{
 		Config: cfg, Mode: mode, Commands: commandViews(cfg.Commands),
 		HTTP: cfg.Features.HTTP != "none", SQLite: cfg.Features.Database == "sqlite", Postgres: cfg.Features.Database == "postgres",
-		Viper: cfg.Features.Config == "viper", ConfigPackage: configPackage(cfg), SQLC: cfg.Features.Access == "sqlc",
+		Viper: cfg.Features.Config == "viper", ConfigPackage: configPackage(cfg), SQLC: cfg.Features.Access == "sqlc", Web: webSelected(cfg, mode),
 	}
 	if drv, ok := drivers[cfg.Features.Database]; ok {
 		d.Database, d.Driver, d.DriverImport = true, drv.name, "_ "+strconv.Quote(drv.pkg)
@@ -94,7 +94,7 @@ func Files(cfg config.Config, mode string) ([]File, error) {
 		}
 	}
 	var files []File
-	for _, out := range slices.Concat(outputs, httpOutputs, cliOutputs, tuiOutputs, configOutputs, databaseOutputs, sqlcOutputs) {
+	for _, out := range slices.Concat(outputs, httpOutputs, cliOutputs, tuiOutputs, configOutputs, databaseOutputs, sqlcOutputs, webOutputs) {
 		if !out.when(cfg, mode) {
 			continue
 		}

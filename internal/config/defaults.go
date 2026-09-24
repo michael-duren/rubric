@@ -29,6 +29,8 @@ func Defaults() Config {
 			CLI:      "none",
 			TUI:      "none",
 			Config:   "stdlib",
+			Web:      "none",
+			E2E:      "none",
 		},
 		Evidence: []Evidence{},
 		Generator: Generator{

@@ -53,6 +53,16 @@ func Commands(c config.Config, mode string) []config.Command {
 	if c.Tooling.Lint {
 		derived = append(derived, config.Command{Name: "lint", Dir: ".", Argv: []string{"sh", checkScript, "lint"}, Env: []string{}})
 	}
+	if webSelected(c, mode) {
+		derived = append(derived, config.Command{
+			Name: "generate-templ", Dir: ".", Argv: []string{"go", "run", catalog.Launcher("templ"), "generate"}, Env: []string{},
+		})
+	}
+	if e2eSelected(c, mode) {
+		derived = append(derived,
+			config.Command{Name: "setup-e2e", Dir: ".", Argv: []string{"go", "run", catalog.Launcher("playwright"), "install", "chromium"}, Env: []string{}},
+			config.Command{Name: "test-e2e", Dir: ".", Argv: []string{"go", "test", "-tags", "e2e", "./e2e/..."}, Env: []string{}})
+	}
 	postgres := mode == "new" && c.Features.Database == "postgres"
 	if postgres {
 		derived = append(derived, config.Command{
