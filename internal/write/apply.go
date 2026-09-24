@@ -27,6 +27,7 @@ type ConflictError struct {
 	Paths []string
 }
 
+// Error lists the conflicting paths.
 func (e *ConflictError) Error() string {
 	return "unresolved conflicts: " + strings.Join(e.Paths, ", ")
 }
@@ -37,6 +38,7 @@ type ApplyError struct {
 	Result Result
 }
 
+// Error describes the failure and which paths were or were not restored.
 func (e *ApplyError) Error() string {
 	msg := fmt.Sprintf("apply failed: %v", e.Cause)
 	if len(e.Result.Restored) > 0 {
@@ -49,6 +51,7 @@ func (e *ApplyError) Error() string {
 	return msg
 }
 
+// Unwrap returns the failure cause.
 func (e *ApplyError) Unwrap() error {
 	return e.Cause
 }

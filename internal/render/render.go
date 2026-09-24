@@ -117,7 +117,11 @@ func Files(cfg config.Config, mode string) ([]File, error) {
 		}
 		files = append(files, File{Path: out.path, Data: body, Mode: mode, Kind: out.kind})
 	}
-	return finish(files)
+	extra, err := styleFiles(cfg)
+	if err != nil {
+		return nil, fmt.Errorf("render style analyzer: %w", err)
+	}
+	return finish(append(files, extra...))
 }
 
 // Normalize derives entry points, absent (nil) commands, and pinned dependencies so every artifact shares them.

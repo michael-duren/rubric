@@ -22,10 +22,12 @@ type InputError struct {
 	Cause error
 }
 
+// Error returns the underlying cause's message.
 func (e *InputError) Error() string {
 	return e.Cause.Error()
 }
 
+// Unwrap returns the underlying cause.
 func (e *InputError) Unwrap() error {
 	return e.Cause
 }
@@ -35,6 +37,7 @@ type ConflictError struct {
 	Plan plan.Plan
 }
 
+// Error lists each conflicting path and why it conflicts.
 func (e *ConflictError) Error() string {
 	conflicts := plan.Conflicts(e.Plan)
 	paths := make([]string, len(conflicts))

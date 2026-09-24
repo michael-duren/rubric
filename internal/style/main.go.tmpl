@@ -1,0 +1,29 @@
+package main
+
+import (
+	"flag"
+	"fmt"
+	"os"
+)
+
+func main() {
+	flag.Usage = func() {
+		fmt.Fprintln(flag.CommandLine.Output(), "usage: go run ./.rubric/style [directory]")
+	}
+	flag.Parse()
+	root := "."
+	if flag.NArg() > 0 {
+		root = flag.Arg(0)
+	}
+	findings, err := AnalyzeTree(root)
+	for _, f := range findings {
+		fmt.Printf("%s:%d: %s: %s\n", f.File, f.Line, f.Rule, f.Message)
+	}
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(2)
+	}
+	if len(findings) > 0 {
+		os.Exit(1)
+	}
+}
