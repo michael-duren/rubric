@@ -83,7 +83,7 @@ func Files(cfg config.Config, mode string) ([]File, error) {
 		}
 	}
 	var files []File
-	for _, out := range slices.Concat(outputs, httpOutputs, cliOutputs) {
+	for _, out := range slices.Concat(outputs, httpOutputs, cliOutputs, tuiOutputs) {
 		if !out.when(cfg, mode) {
 			continue
 		}
