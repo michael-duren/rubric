@@ -10,7 +10,7 @@
 #   - Repository admins bypass the ruleset ("exempt list"). GitHub rulesets cannot
 #     list individual users on personal repositories, so the owner is exempted
 #     through the admin role; on a personal repo the owner is the only admin.
-#   - Head branches are deleted automatically after pull requests merge.
+#   - Pull requests merge by squash only, and head branches are deleted after merge.
 #
 # Usage:
 #   scripts/setup-branch-protection.sh [--repo OWNER/NAME] [--branch NAME]
@@ -94,7 +94,7 @@ payload=$(jq -n \
 				require_code_owner_review: $code_owners,
 				require_last_push_approval: false,
 				required_review_thread_resolution: true,
-				allowed_merge_methods: ["merge", "squash", "rebase"]
+				allowed_merge_methods: ["squash"]
 			}},
 			{type: "required_status_checks", parameters: {
 				strict_required_status_checks_policy: true,
@@ -116,7 +116,7 @@ if [ -n "$existing" ]; then
 else
 	echo "Ruleset:     create"
 fi
-echo "Auto-delete: head branches after merge"
+echo "Merging:     squash only; head branches auto-deleted after merge"
 
 if $dry_run; then
 	echo
@@ -131,4 +131,5 @@ else
 	echo "$payload" | gh api --method POST "repos/$repo/rulesets" --input - --jq '"created ruleset #\(.id)"'
 fi
 
-gh api --method PATCH "repos/$repo" -F delete_branch_on_merge=true --jq '"delete_branch_on_merge=\(.delete_branch_on_merge)"'
+gh api --method PATCH "repos/$repo" -F delete_branch_on_merge=true -F allow_squash_merge=true -F allow_merge_commit=false -F allow_rebase_merge=false \
+	--jq '"squash=\(.allow_squash_merge) merge_commit=\(.allow_merge_commit) rebase=\(.allow_rebase_merge) delete_branch_on_merge=\(.delete_branch_on_merge)"'
