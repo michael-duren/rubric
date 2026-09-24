@@ -200,18 +200,27 @@ func TestGuidanceNeverCallsDeferredCommands(t *testing.T) {
 		c := testproject.Config()
 		c.Features.HTTP = "chi"
 		c.Tooling = config.Tooling{Skills: true, Lint: true, Makefile: true, Actions: true}
-		text := instructions(t, c, mode)
+		authored := instructions(t, c, mode)
+		all := authored
 		files, err := render.Files(c, mode)
 		if err != nil {
 			t.Fatal(err)
 		}
 		for _, f := range files {
-			text += string(f.Data)
+			all += string(f.Data)
+			vendored := strings.HasPrefix(f.Path, ".agents/agents/") ||
+				strings.HasPrefix(f.Path, ".agents/skills/") && !strings.HasPrefix(f.Path, ".agents/skills/rubric-")
+			if !vendored {
+				authored += string(f.Data)
+			}
 		}
-		for _, bad := range []string{"rubric validate", "rubric make", "rubric paths", "rubric perf", "performance"} {
-			if strings.Contains(text, bad) {
+		for _, bad := range []string{"rubric validate", "rubric make", "rubric paths", "rubric perf"} {
+			if strings.Contains(all, bad) {
 				t.Errorf("%s output mentions %q", mode, bad)
 			}
+		}
+		if strings.Contains(authored, "performance") {
+			t.Errorf("%s Rubric-authored output advertises performance tooling", mode)
 		}
 	}
 }

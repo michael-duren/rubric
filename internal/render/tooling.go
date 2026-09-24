@@ -76,7 +76,11 @@ func Tooling(c config.Config) ([]File, error) {
 	if err != nil {
 		return nil, err
 	}
-	return append(files, analyzer...), nil
+	pstack, err := pstackFiles(c)
+	if err != nil {
+		return nil, err
+	}
+	return append(append(files, analyzer...), pstack...), nil
 }
 
 func newToolingData(c config.Config) toolingData {
@@ -160,6 +164,9 @@ func toolingGuidance(c config.Config) []string {
 	if c.Tooling.Skills {
 		out = append(out, "Agent skills: `.agents/skills/rubric-workflow/SKILL.md`, `.agents/skills/rubric-testing/SKILL.md`, "+
 			"`.agents/skills/rubric-style/SKILL.md`")
+		out = append(out, "pstack skills in `.agents/skills/` (start with `poteto-mode`; map and verify features with "+
+			"`create-verification-skill` and `maintain-verification-skill`) and their subagents in `.agents/agents/`; "+
+			"attribution in `.agents/skills/THIRD_PARTY_NOTICES.md`")
 	}
 	return out
 }
