@@ -2,7 +2,9 @@ name: ci
 
 on:
   push:
+    branches: [main]
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -12,7 +14,24 @@ env:
   LINT: github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.13.2
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      go: ${{ steps.areas.outputs.go }}
+      scripts: ${{ steps.areas.outputs.scripts }}
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with:
+          fetch-depth: 0
+      - id: areas
+        name: Detect changed areas
+        env:
+          BASE: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event_name == 'push' && github.event.before || '' }}
+        run: .github/scripts/changed-areas.sh "$BASE" "$GITHUB_SHA" | tee -a "$GITHUB_OUTPUT"
+
   test:
+    needs: changes
+    if: needs.changes.outputs.go == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
@@ -33,6 +52,8 @@ jobs:
         run: go test -run TestRepositoryStyle ./internal/style
 
   acceptance:
+    needs: changes
+    if: needs.changes.outputs.go == 'true'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -69,3 +90,26 @@ jobs:
       - name: Tooling, database, terminal, browser, and coverage acceptance
         if: matrix.shard == 0
         run: go test -timeout 45m -skip 'TestAcceptanceMatrix' ./internal/acceptance ./internal/render -v
+
+  scripts:
+    needs: changes
+    if: needs.changes.outputs.scripts == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+      - name: Shell syntax
+        run: for f in scripts/*.sh .github/scripts/*.sh; do bash -n "$f"; done
+      - name: ShellCheck
+        run: shellcheck scripts/*.sh .github/scripts/*.sh
+
+  ci:
+    if: always()
+    needs: [changes, test, acceptance, scripts]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every job to pass or be skipped
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          echo "$RESULTS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
+          echo "$RESULTS" | jq -e '.changes.result == "success" and (to_entries | all(.value.result == "success" or .value.result == "skipped"))' > /dev/null
