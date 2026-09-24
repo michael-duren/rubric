@@ -2,8 +2,9 @@
 
 Date: 2026-09-24
 
-Status: Written specification for review. The conversational design is approved;
-the implementation plan and product implementation follow review of this file.
+Status: Approved by the user on 2026-09-24, including the mandatory testing
+requirement. Implementation awaits review of the written implementation plan
+and selection of its execution method.
 
 ## Purpose and success criteria
 
