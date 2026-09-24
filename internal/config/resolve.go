@@ -104,6 +104,9 @@ func assign[T any](dst *T, v any, name string) error {
 }
 
 func cloneList[T any](list []T) []T {
+	if list == nil {
+		return nil
+	}
 	out := make([]T, len(list))
 	copy(out, list)
 	for i := range out {

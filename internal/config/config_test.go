@@ -344,7 +344,9 @@ func TestValidate(t *testing.T) {
 		{name: "entry point with spaces ok", mode: "new", edit: func(c *Config) { c.EntryPoints = []EntryPoint{{Name: "x", Dir: "cmd/my $tool `q`"}} }},
 		{name: "command no argv", mode: "new", edit: func(c *Config) { c.Commands = []Command{{Name: "t", Dir: "."}} }, wantErr: "commands"},
 		{name: "command nul argv", mode: "new", edit: func(c *Config) { c.Commands = []Command{{Name: "t", Dir: ".", Argv: []string{"go\x00"}}} }, wantErr: "commands"},
-		{name: "command bad env", mode: "new", edit: func(c *Config) { c.Commands = []Command{{Name: "t", Dir: ".", Argv: []string{"go"}, Env: []string{"A=b"}}} }, wantErr: "commands"},
+		{name: "command bad env", mode: "new", edit: func(c *Config) {
+			c.Commands = []Command{{Name: "t", Dir: ".", Argv: []string{"go"}, Env: []string{"A=b"}}}
+		}, wantErr: "commands"},
 		{name: "command ok", mode: "new", edit: func(c *Config) {
 			c.Commands = []Command{{Name: "t", Dir: ".", Argv: []string{"go", "test", "./..."}, Env: []string{"DATABASE_URL"}}}
 		}},

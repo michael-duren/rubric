@@ -14,7 +14,7 @@ const (
 // GeneratorVersion is the Rubric version recorded in generated configuration; releases override it.
 var GeneratorVersion = "dev"
 
-// Defaults returns the documented defaults: no capabilities, module-only starter, tooling off.
+// Defaults returns the documented defaults; nil entry points and commands mean "derive them".
 func Defaults() Config {
 	return Config{
 		Schema: SchemaVersion,
@@ -30,9 +30,7 @@ func Defaults() Config {
 			TUI:      "none",
 			Config:   "stdlib",
 		},
-		EntryPoints: []EntryPoint{},
-		Commands:    []Command{},
-		Evidence:    []Evidence{},
+		Evidence: []Evidence{},
 		Generator: Generator{
 			Version:      GeneratorVersion,
 			Template:     TemplateRevision,

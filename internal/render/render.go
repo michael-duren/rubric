@@ -106,10 +106,12 @@ func Files(cfg config.Config, mode string) ([]File, error) {
 	return finish(files)
 }
 
-// Normalize derives entry points, commands, and pinned dependencies once so every artifact shares them.
+// Normalize derives entry points, absent (nil) commands, and pinned dependencies so every artifact shares them.
 func Normalize(cfg config.Config, mode string) (config.Config, error) {
 	cfg.EntryPoints = EntryPoints(cfg, mode)
-	cfg.Commands = Commands(cfg, mode)
+	if cfg.Commands == nil {
+		cfg.Commands = Commands(cfg, mode)
+	}
 	if mode == "new" {
 		deps, err := catalog.Dependencies(cfg.Features)
 		if err != nil {
