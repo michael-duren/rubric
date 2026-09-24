@@ -249,7 +249,8 @@ func reconcileExisting(cfg *config.Config, facts detect.Facts, explicit func(str
 		cfg.Commands = nil
 	}
 	for _, cmd := range cfg.Commands {
-		if len(cmd.Argv) >= 3 && cmd.Argv[0] == "go" && cmd.Argv[1] == "run" {
+		local := len(cmd.Argv) >= 3 && (cmd.Argv[2] == "." || strings.HasPrefix(cmd.Argv[2], "./"))
+		if local && cmd.Argv[0] == "go" && cmd.Argv[1] == "run" {
 			dir := strings.TrimPrefix(cmd.Argv[2], "./")
 			if dir == "" {
 				dir = "."

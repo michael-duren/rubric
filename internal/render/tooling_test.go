@@ -131,6 +131,9 @@ func TestToolingCombinations(t *testing.T) {
 						t.Errorf("check.sh mode %v", script.Mode)
 					}
 					ops = checkOps(t, string(script.Data))
+					if tooling.Lint && !strings.Contains(string(script.Data), lintLaunch+" run --allow-parallel-runners") {
+						t.Error("lint does not allow concurrent golangci-lint runs")
+					}
 					if tooling.Lint != slices.Contains(ops, "lint") {
 						t.Errorf("lint operation present=%v", slices.Contains(ops, "lint"))
 					}

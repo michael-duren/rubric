@@ -1,3 +1,4 @@
+// Command rubric sets up Go projects with tested templates and accurate agent guidance.
 package main
 
 import (

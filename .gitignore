@@ -27,6 +27,11 @@ go.work.sum
 # env file
 .env
 
+# Local builds and acceptance artifacts
+/bin/
+/.acceptance/
+/.superpowers/
+
 # Editor/IDE
 # .idea/
 # .vscode/

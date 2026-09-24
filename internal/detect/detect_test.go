@@ -272,10 +272,28 @@ func main() {
 	facts := inspect(t, root)
 	for _, want := range [][2]string{
 		{"features.database", "sqlite"}, {"features.access", "sqlc"}, {"features.cli", "cobra"},
-		{"features.tui", "bubbletea"}, {"features.config", "viper"}, {"file", "Makefile"},
+		{"features.tui", "bubbletea"}, {"features.config", "viper"},
 	} {
 		if !has(facts, want[0], want[1]) {
 			t.Errorf("missing %s=%s in %+v", want[0], want[1], facts.Evidence)
+		}
+	}
+}
+
+func TestRubricOutputsAreNotEvidence(t *testing.T) {
+	root := t.TempDir()
+	write(t, root, map[string]string{
+		"go.mod":                   gomod,
+		"AGENTS.md":                "# rules\n",
+		"rubric.yaml":              "schema: 1\n",
+		"Makefile":                 "test:\n",
+		".golangci.yml":            "version: \"2\"\n",
+		".github/workflows/ci.yml": "name: ci\n",
+	})
+	facts := inspect(t, root)
+	for _, e := range facts.Evidence {
+		if e.Field == "file" {
+			t.Fatalf("generated or tooling file recorded as evidence: %+v", e)
 		}
 	}
 }

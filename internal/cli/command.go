@@ -48,7 +48,7 @@ func Run(ctx context.Context, args []string, s Streams) int {
 		err = &usageError{err: err}
 	}
 	if !reported(cmd) {
-		fmt.Fprintf(s.Err, "rubric: %v\n", err)
+		printf(s.Err, "rubric: %v\n", err)
 	}
 	return code
 }

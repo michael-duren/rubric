@@ -242,6 +242,18 @@ func TestStaleSavedEntryPointFails(t *testing.T) {
 	}
 }
 
+func TestRemoteGoRunCommandsAreNotEntryPoints(t *testing.T) {
+	root := t.TempDir()
+	req := newRequest(root, config.Patch{"features.database": "sqlite", "features.access": "sqlc"})
+	if _, err := Apply(context.Background(), req, mustPrepare(t, req)); err != nil {
+		t.Fatal(err)
+	}
+	p := mustPrepare(t, Request{Target: root, Mode: "auto"})
+	if !slices.ContainsFunc(p.Config.Commands, func(c config.Command) bool { return c.Name == "generate" }) {
+		t.Fatalf("generate command lost: %+v", p.Config.Commands)
+	}
+}
+
 func TestConflictsBlockApplyAndDecisionsResolve(t *testing.T) {
 	root := t.TempDir()
 	put(t, root, "README.md", "mine\n")

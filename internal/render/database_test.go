@@ -115,7 +115,7 @@ func TestGeneratedPostgresIntegration(t *testing.T) {
 			testproject.Go(t, root, "mod", "tidy")
 			t.Setenv("TEST_DATABASE_URL", url)
 			out := testproject.Go(t, root, "test", "-count=1", "-tags", "integration", "-v", "./internal/store/...")
-			for _, name := range []string{"TestIntegrationRoundTrip", "TestIntegrationUpsert", "TestIntegrationNotFound"} {
+			for _, name := range []string{"TestIntegrationRoundTrip", "TestIntegrationUpsert", "TestIntegrationNotFound", "TestIntegrationTransaction"} {
 				if !strings.Contains(out, "--- PASS: "+name) {
 					t.Errorf("%s did not pass:\n%s", name, out)
 				}

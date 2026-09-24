@@ -8,6 +8,24 @@ explicit standard. Starting with go, designed to become language independent.
 Referencing [laurens video](https://x.com/poteto/status/2102050467505430555) I'll
 be adapting their practices to go lang projects.
 
+## getting started (v1: `rubric init`)
+
+`rubric init` is implemented. It creates a Go project from tested templates, or adds
+`rubric.yaml`, agent guidance, and optional tooling to an existing module. Nothing is
+published yet; build it from this checkout:
+
+```text
+go install ./cmd/rubric                  # or: go build -o ./bin/rubric ./cmd/rubric
+rubric init my-app --module example.com/my-app --http chi --lint --makefile
+```
+
+In a terminal it opens a wizard; with `--non-interactive`, `--format json`, or redirected
+output it runs unattended. See [docs/cli-init.md](docs/cli-init.md) for every flag,
+configuration precedence, conflicts, recovery, and generated test commands.
+
+Everything below the principles is the roadmap. Items other than `rubric init` are not
+implemented, and generated tooling never calls them.
+
 ## principles
 
 - **Deterministic over prompted.** Anything that can be checked by a tool is checked
@@ -68,21 +86,24 @@ be adapting their practices to go lang projects.
   - [ ] Path coverage gate and perf reports on PRs.
 
 - [ ] **CLI**
-  - [ ] `rubric init`: interactive TUI to select features and bootstrap the repo.
+  - [x] `rubric init`: interactive TUI to select features and bootstrap the repo.
         Uses Bubble Tea, supports new and existing Go projects, and also runs
-        noninteractively. See the [v1 design spec](docs/superpowers/specs/2026-09-24-rubric-init-design.md).
+        noninteractively. See [docs/cli-init.md](docs/cli-init.md) and the
+        [v1 design spec](docs/superpowers/specs/2026-09-24-rubric-init-design.md).
   - [ ] Asks a series of questions to set up initial prompts.
   - [ ] `rubric validate`: lint, LSP conformance, path coverage.
   - [ ] `rubric make`: detect needs, update `rubric.yaml`, regenerate the Makefile.
   - [ ] `rubric paths`: list changed-code paths, coverage status, scaffold tests.
   - [ ] `rubric perf`: run benchmarks, trace diffs, load tests, emit before/after report.
 
-- [ ] **Testing (v1)**
-  - [ ] Automated tests cover all Rubric behavior.
-  - [ ] Generated Go code includes meaningful tests, except `main.go` files and files
+- [x] **Testing (v1)**
+  - [x] Automated tests cover all Rubric behavior (`go test -race ./...`).
+  - [x] Generated Go code includes meaningful tests, except `main.go` files and files
         beneath `cmd/` directories. Keep entry points thin and behavior in tested packages.
-  - [ ] Generated tests are included even when Makefile or CI setup is disabled.
-  - [ ] Verify that supported generated project combinations build and pass their tests.
+  - [x] Generated tests are included even when Makefile or CI setup is disabled.
+  - [x] Every supported combination is generated, built, and tested by
+        `RUBRIC_ACCEPTANCE=1 go test ./internal/acceptance` (needs `TEST_DATABASE_URL`
+        for an isolated PostgreSQL test database).
 
 ## open questions
 

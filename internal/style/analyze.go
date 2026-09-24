@@ -172,7 +172,7 @@ func (a *analyzer) exportedFunc(d *ast.FuncDecl) bool {
 	if d.Recv != nil {
 		return len(d.Recv.List) == 1 && receiverName(d.Recv.List[0].Type).IsExported()
 	}
-	return !(a.test && testEntryPoint(d))
+	return !a.test || !testEntryPoint(d)
 }
 
 func receiverName(expr ast.Expr) *ast.Ident {

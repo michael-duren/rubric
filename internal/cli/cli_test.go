@@ -21,7 +21,7 @@ type run struct {
 	out, stderr string
 }
 
-func invoke(t *testing.T, ctx context.Context, args ...string) run {
+func invoke(ctx context.Context, t *testing.T, args ...string) run {
 	t.Helper()
 	var out, stderr bytes.Buffer
 	code := Run(ctx, args, Streams{In: strings.NewReader(""), Out: &out, Err: &stderr})
@@ -105,11 +105,11 @@ func TestJSONDryRunDoesNotWrite(t *testing.T) {
 }
 
 func TestHelp(t *testing.T) {
-	r := invoke(t, t.Context(), "--help")
+	r := invoke(t.Context(), t, "--help")
 	if r.code != 0 || !strings.Contains(r.out, "init") {
 		t.Fatalf("root help: %+v", r)
 	}
-	r = invoke(t, t.Context(), "init", "--help")
+	r = invoke(t.Context(), t, "init", "--help")
 	for _, want := range []string{"--module", "--non-interactive", "--dry-run", "--format", "--entry-point", "--clear-commands", "--app-config"} {
 		if !strings.Contains(r.out, want) {
 			t.Errorf("init help missing %s", want)
@@ -128,7 +128,7 @@ func TestUsageErrorsExit2(t *testing.T) {
 		{"init", "a", "b"},
 		{"init", "--lint=maybe"},
 	} {
-		r := invoke(t, t.Context(), args...)
+		r := invoke(t.Context(), t, args...)
 		if r.code != 2 || r.stderr == "" {
 			t.Errorf("%v: exit %d stderr %q", args, r.code, r.stderr)
 		}
@@ -137,7 +137,7 @@ func TestUsageErrorsExit2(t *testing.T) {
 
 func TestMissingModuleFailsBeforeWrites(t *testing.T) {
 	root := t.TempDir()
-	r := invoke(t, t.Context(), "init", root, "--format", "json")
+	r := invoke(t.Context(), t, "init", root, "--format", "json")
 	rep := decode(t, r)
 	if r.code != 2 || rep.Status != "invalid" || len(rep.Diagnostics) == 0 || !strings.Contains(rep.Diagnostics[0].Message, "project.module") {
 		t.Fatalf("exit %d report %+v", r.code, rep)
@@ -145,7 +145,7 @@ func TestMissingModuleFailsBeforeWrites(t *testing.T) {
 	if entries, _ := os.ReadDir(root); len(entries) != 0 {
 		t.Fatal("wrote files")
 	}
-	r = invoke(t, t.Context(), "init", root)
+	r = invoke(t.Context(), t, "init", root)
 	if r.code != 2 || !strings.Contains(r.stderr, "project.module") {
 		t.Fatalf("text: %+v", r)
 	}
@@ -156,7 +156,7 @@ func TestConfigFlagPrecedenceAndExplicitFalse(t *testing.T) {
 	cfg := filepath.Join(dir, "input.yaml")
 	put(t, dir, "input.yaml", "project:\n  module: example.com/fromfile\n  description: from file\ntooling:\n  lint: true\n  makefile: true\n")
 	root := filepath.Join(dir, "proj")
-	r := invoke(t, t.Context(), "init", root, "--config", cfg, "--description", "from flag", "--lint=false", "--format", "json", "--dry-run")
+	r := invoke(t.Context(), t, "init", root, "--config", cfg, "--description", "from flag", "--lint=false", "--format", "json", "--dry-run")
 	rep := decode(t, r)
 	c := rep.Config
 	if r.code != 0 || c.Project.Module != "example.com/fromfile" || c.Project.Description != "from flag" || c.Tooling.Lint || !c.Tooling.Makefile {
@@ -176,7 +176,7 @@ func TestBadConfigInputs(t *testing.T) {
 		{"--module", "example.com/x", "--command", `{"name":"t","argv":["go"],"shell":"sh -c"}`},
 		{"--module", "example.com/x", "--entry-point", `{"name":"a","dir":"cmd/a"}`, "--clear-entry-points"},
 	} {
-		r := invoke(t, t.Context(), append([]string{"init", filepath.Join(dir, "p"), "--format", "json"}, args...)...)
+		r := invoke(t.Context(), t, append([]string{"init", filepath.Join(dir, "p"), "--format", "json"}, args...)...)
 		if r.code != 2 {
 			t.Errorf("%v: exit %d out %s", args, r.code, r.out)
 			continue
@@ -188,12 +188,12 @@ func TestBadConfigInputs(t *testing.T) {
 func TestDryRunConflictsExit2(t *testing.T) {
 	root := t.TempDir()
 	put(t, root, "README.md", "mine\n")
-	r := invoke(t, t.Context(), "init", root, "--mode", "new", "--module", "example.com/demo", "--format", "json", "--dry-run")
+	r := invoke(t.Context(), t, "init", root, "--mode", "new", "--module", "example.com/demo", "--format", "json", "--dry-run")
 	rep := decode(t, r)
 	if r.code != 2 || rep.Status != "conflict" || len(rep.Conflicts) != 1 || rep.Conflicts[0].Path != "README.md" {
 		t.Fatalf("exit %d report %+v", r.code, rep)
 	}
-	r = invoke(t, t.Context(), "init", root, "--mode", "new", "--module", "example.com/demo")
+	r = invoke(t.Context(), t, "init", root, "--mode", "new", "--module", "example.com/demo")
 	if r.code != 2 || !strings.Contains(r.stderr+r.out, "README.md") {
 		t.Fatalf("apply with conflict: %+v", r)
 	}
@@ -205,10 +205,10 @@ func TestDryRunConflictsExit2(t *testing.T) {
 func TestNonemptyNonModuleNeedsExplicitNew(t *testing.T) {
 	root := t.TempDir()
 	put(t, root, "notes.txt", "x")
-	if r := invoke(t, t.Context(), "init", root, "--module", "example.com/demo"); r.code != 2 || !strings.Contains(r.stderr, "--mode new") {
+	if r := invoke(t.Context(), t, "init", root, "--module", "example.com/demo"); r.code != 2 || !strings.Contains(r.stderr, "--mode new") {
 		t.Fatalf("auto: %+v", r)
 	}
-	if r := invoke(t, t.Context(), "init", root, "--module", "example.com/demo", "--mode", "new"); r.code != 0 {
+	if r := invoke(t.Context(), t, "init", root, "--module", "example.com/demo", "--mode", "new"); r.code != 0 {
 		t.Fatalf("explicit new: %+v", r)
 	}
 }
@@ -217,7 +217,7 @@ func TestCancellationExit130(t *testing.T) {
 	root := t.TempDir()
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	r := invoke(t, ctx, "init", root, "--module", "example.com/demo", "--format", "json")
+	r := invoke(ctx, t, "init", root, "--module", "example.com/demo", "--format", "json")
 	rep := decode(t, r)
 	if r.code != 130 || rep.Status != "cancelled" {
 		t.Fatalf("exit %d report %+v", r.code, rep)
@@ -236,7 +236,7 @@ func TestOperationalFailureExit1(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = os.Chmod(parent, 0o755) })
-	r := invoke(t, t.Context(), "init", filepath.Join(parent, "proj"), "--module", "example.com/demo", "--format", "json")
+	r := invoke(t.Context(), t, "init", filepath.Join(parent, "proj"), "--module", "example.com/demo", "--format", "json")
 	rep := decode(t, r)
 	if r.code != 1 || rep.Status != "error" || len(rep.Diagnostics) == 0 {
 		t.Fatalf("exit %d report %+v", r.code, rep)
@@ -248,7 +248,7 @@ func TestExistingProjectWithUnknownLibraries(t *testing.T) {
 	put(t, root, "go.mod", "module example.com/app\n\ngo 1.22\n")
 	main := "package main\n\nimport \"github.com/gin-gonic/gin\"\n\nfunc main() { _ = gin.Default().Run() }\n"
 	put(t, root, "main.go", main)
-	r := invoke(t, t.Context(), "init", root, "--format", "json")
+	r := invoke(t.Context(), t, "init", root, "--format", "json")
 	rep := decode(t, r)
 	if r.code != 0 || rep.Mode != "existing" || rep.Config.Features.HTTP != "gin" || rep.Config.Project.Go != "1.22" {
 		t.Fatalf("exit %d report %+v", r.code, rep)
@@ -272,7 +272,7 @@ func TestStructuredEntryPointAndCommandFlags(t *testing.T) {
 	root := t.TempDir()
 	put(t, root, "go.mod", "module example.com/app\n\ngo 1.22\n")
 	put(t, root, "tools/my tool/main.go", "package main\n\nfunc main() {}\n")
-	r := invoke(t, t.Context(), "init", root, "--format", "json", "--dry-run",
+	r := invoke(t.Context(), t, "init", root, "--format", "json", "--dry-run",
 		"--entry-point", `{"name":"tool","dir":"tools/my tool"}`,
 		"--command", `{"name":"test","argv":["go","test","./...","-run","$(Test)"],"env":["DATABASE_URL"]}`)
 	rep := decode(t, r)
@@ -291,7 +291,7 @@ func TestStructuredEntryPointAndCommandFlags(t *testing.T) {
 	if len(rep.Config.EntryPoints) != 1 || rep.Config.EntryPoints[0].Dir != "tools/my tool" {
 		t.Fatalf("entry points = %+v", rep.Config.EntryPoints)
 	}
-	r = invoke(t, t.Context(), "init", root, "--format", "json", "--dry-run", "--clear-commands", "--clear-entry-points")
+	r = invoke(t.Context(), t, "init", root, "--format", "json", "--dry-run", "--clear-commands", "--clear-entry-points")
 	rep = decode(t, r)
 	if r.code != 0 || len(rep.Config.Commands) != 0 || len(rep.Next) != 0 {
 		t.Fatalf("clear flags: exit %d %+v", r.code, rep.Config.Commands)
@@ -300,7 +300,7 @@ func TestStructuredEntryPointAndCommandFlags(t *testing.T) {
 
 func TestTextReportAndRerun(t *testing.T) {
 	root := t.TempDir()
-	r := invoke(t, t.Context(), "init", root, "--module", "example.com/demo", "--starter", "runnable")
+	r := invoke(t.Context(), t, "init", root, "--module", "example.com/demo", "--starter", "runnable")
 	if r.code != 0 {
 		t.Fatalf("first: %+v", r)
 	}
@@ -310,10 +310,10 @@ func TestTextReportAndRerun(t *testing.T) {
 		}
 	}
 	put(t, root, "main.go", "package main\n\nfunc main() { println(1) }\n")
-	if r := invoke(t, t.Context(), "init", root); r.code != 0 {
+	if r := invoke(t.Context(), t, "init", root); r.code != 0 {
 		t.Fatalf("second: %+v", r)
 	}
-	r = invoke(t, t.Context(), "init", root, "--format", "json")
+	r = invoke(t.Context(), t, "init", root, "--format", "json")
 	rep := decode(t, r)
 	for _, a := range rep.Actions {
 		if a.State != "unchanged" {

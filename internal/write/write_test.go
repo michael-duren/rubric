@@ -51,7 +51,7 @@ func prepare(t *testing.T, root, mode string, files ...render.File) plan.Plan {
 func listing(t *testing.T, root string) []string {
 	t.Helper()
 	var out []string
-	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+	err := filepath.WalkDir(root, func(path string, _ fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}

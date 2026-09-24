@@ -1,0 +1,68 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  GOTOOLCHAIN: local
+  LINT: github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.13.2
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+      - uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00
+        with:
+          go-version-file: go.mod
+      - name: Test with race detection and coverage
+        run: go test -race -coverprofile=unit-coverage.out ./...
+      - name: Coverage summary
+        run: go tool cover -func=unit-coverage.out
+      - name: Vet
+        run: go vet ./...
+      - name: Format
+        run: go run "$LINT" fmt --diff
+      - name: Lint
+        run: go run "$LINT" run
+      - name: Style policy
+        run: go test -run TestRepositoryStyle ./internal/style
+
+  acceptance:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3]
+    services:
+      postgres:
+        image: postgres:17.6
+        env:
+          POSTGRES_DB: rubric_test
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d rubric_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      RUBRIC_ACCEPTANCE: "1"
+      RUBRIC_SHARD: ${{ matrix.shard }}/4
+      TEST_DATABASE_URL: postgres://postgres@127.0.0.1:5432/rubric_test?sslmode=disable
+      RUBRIC_TEST_DATABASE_URL: postgres://postgres@127.0.0.1:5432/rubric_test?sslmode=disable
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+      - uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00
+        with:
+          go-version-file: go.mod
+      - name: Generated project matrix shard
+        run: go test -timeout 45m -run 'TestAcceptanceMatrix' ./internal/acceptance -v
+      - name: Tooling, database, terminal, and coverage acceptance
+        if: matrix.shard == 0
+        run: go test -timeout 45m -skip 'TestAcceptanceMatrix' ./internal/acceptance ./internal/render -v

@@ -59,13 +59,15 @@ case "$op" in
 		;;
 {{- if .Lint}}
 	lint)
-		go run {{.LintLauncher}} fmt --diff
+		status=0
+		go run {{.LintLauncher}} fmt --diff || status=1
 		if packages; then
-			go run {{.LintLauncher}} run
+			go run {{.LintLauncher}} run --allow-parallel-runners || status=1
 		else
 			echo "rubric: no application packages to lint yet"
 		fi
-		go run ./.rubric/style .
+		go run ./.rubric/style . || status=1
+		exit "$status"
 		;;
 {{- end}}
 {{- range .Ops}}

@@ -98,15 +98,15 @@ func writeJSON(w io.Writer, r report) error {
 
 func writeText(out, errw io.Writer, r report) {
 	if r.Mode != "" {
-		fmt.Fprintf(out, "rubric init: %s project at %s\n", r.Mode, r.Target)
+		printf(out, "rubric init: %s project at %s\n", r.Mode, r.Target)
 		for _, a := range r.Actions {
-			fmt.Fprintf(out, "  %-9s %s\n", a.State, a.Path)
+			printf(out, "  %-9s %s\n", a.State, a.Path)
 		}
 	}
 	if len(r.Conflicts) > 0 {
-		fmt.Fprintln(out, "\nConflicts:")
+		printLine(out, "\nConflicts:")
 		for _, c := range r.Conflicts {
-			fmt.Fprintf(out, "  %s: %s\n", c.Path, c.Reason)
+			printf(out, "  %s: %s\n", c.Path, c.Reason)
 		}
 	}
 	for _, d := range r.Diagnostics {
@@ -114,23 +114,23 @@ func writeText(out, errw io.Writer, r report) {
 		if d.Severity == "error" {
 			w = errw
 		}
-		fmt.Fprintf(w, "%s: %s\n", d.Severity, d.Message)
+		printf(w, "%s: %s\n", d.Severity, d.Message)
 	}
 	if r.Result != nil && len(r.Result.Unrecovered) > 0 {
-		fmt.Fprintf(errw, "not restored: %s\n", strings.Join(r.Result.Unrecovered, ", "))
+		printf(errw, "not restored: %s\n", strings.Join(r.Result.Unrecovered, ", "))
 	}
 	switch r.Status {
 	case "dry-run":
-		fmt.Fprintln(out, "\nDry run: no files were written.")
+		printLine(out, "\nDry run: no files were written.")
 	case "ok":
 		if r.Result != nil {
-			fmt.Fprintf(out, "\nApplied %d file(s). Dependencies were not downloaded and no project tests were run.\n", len(r.Result.Applied))
+			printf(out, "\nApplied %d file(s). Dependencies were not downloaded and no project tests were run.\n", len(r.Result.Applied))
 		}
 	}
 	if len(r.Next) > 0 {
-		fmt.Fprintln(out, "\nCommands:")
+		printLine(out, "\nCommands:")
 		for _, c := range r.Next {
-			fmt.Fprintf(out, "  %s: %s\n", c.Name, strings.Join(quoteArgs(c.Argv), " "))
+			printf(out, "  %s: %s\n", c.Name, strings.Join(quoteArgs(c.Argv), " "))
 		}
 	}
 }
@@ -138,13 +138,27 @@ func writeText(out, errw io.Writer, r report) {
 func quoteArgs(argv []string) []string {
 	out := make([]string, len(argv))
 	for i, a := range argv {
-		if a != "" && strings.IndexFunc(a, func(r rune) bool {
-			return !(r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || strings.ContainsRune("_./:=@%+,-", r))
-		}) < 0 {
+		if a != "" && strings.IndexFunc(a, unsafeShellRune) < 0 {
 			out[i] = a
 		} else {
 			out[i] = "'" + strings.ReplaceAll(a, "'", `'\''`) + "'"
 		}
 	}
 	return out
+}
+
+func printf(w io.Writer, format string, args ...any) {
+	_, _ = fmt.Fprintf(w, format, args...)
+}
+
+func printLine(w io.Writer, args ...any) {
+	_, _ = fmt.Fprintln(w, args...)
+}
+
+func unsafeShellRune(r rune) bool {
+	switch {
+	case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9':
+		return false
+	}
+	return !strings.ContainsRune("_./:=@%+,-", r)
 }

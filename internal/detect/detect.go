@@ -29,11 +29,6 @@ type Facts struct {
 
 var skippedDirs = map[string]bool{".git": true, "vendor": true, ".rubric": true, "testdata": true, "node_modules": true}
 
-var knownFiles = map[string]bool{
-	"Makefile": true, ".golangci.yml": true, ".golangci.yaml": true, "rubric.yaml": true, "AGENTS.md": true,
-	".github/workflows/ci.yml": true, ".github/workflows/ci.yaml": true,
-}
-
 var sqlcFiles = map[string]bool{"sqlc.yaml": true, "sqlc.yml": true, "sqlc.json": true}
 
 // Inspect reads root without modifying it or running project code.
@@ -127,11 +122,8 @@ func (s *scan) visit(full string, d fs.DirEntry, err error) error {
 	if !d.Type().IsRegular() {
 		return nil
 	}
-	switch {
-	case sqlcFiles[rel]:
+	if sqlcFiles[rel] {
 		s.add("features.access", "sqlc", rel)
-	case knownFiles[rel]:
-		s.add("file", rel, rel)
 	}
 	if !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") {
 		return nil

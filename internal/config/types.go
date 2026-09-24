@@ -1,3 +1,4 @@
+// Package config defines the rubric.yaml model, its layered resolution, validation, and comment-preserving encoding.
 package config
 
 import "go.yaml.in/yaml/v3"

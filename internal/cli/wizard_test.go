@@ -55,7 +55,7 @@ func TestUnattendedPathsNeverStartWizard(t *testing.T) {
 			t.Fatalf("%v: exit %d %s", args, r.code, r.stderr)
 		}
 	}
-	if r := invoke(t, t.Context(), "init", t.TempDir(), "--module", "example.com/demo"); r.code != 0 {
+	if r := invoke(t.Context(), t, "init", t.TempDir(), "--module", "example.com/demo"); r.code != 0 {
 		t.Fatalf("redirected: %+v", r)
 	}
 	if len(*calls) != 0 {

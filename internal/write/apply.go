@@ -86,7 +86,7 @@ func applyWithOps(ctx context.Context, target string, p plan.Plan, ops operation
 	if err != nil {
 		return res, err
 	}
-	defer anc.root.Close()
+	defer func() { _ = anc.root.Close() }()
 	if err := preflight(ops, anc, actions); err != nil {
 		return res, err
 	}
