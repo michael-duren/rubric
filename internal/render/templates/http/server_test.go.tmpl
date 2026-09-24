@@ -1,0 +1,130 @@
+package httpserver
+
+import (
+	"context"
+	"errors"
+	"io"
+	"net"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+	"time"
+)
+
+func TestHealth(t *testing.T) {
+	handler := New(nil)
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/healthz", nil))
+	if response.Code != http.StatusOK || response.Body.String() != "ok\n" {
+		t.Fatalf("health = %d %q", response.Code, response.Body.String())
+	}
+}
+
+func TestReadiness(t *testing.T) {
+	cancelled, cancel := context.WithCancel(context.Background())
+	cancel()
+	tests := []struct {
+		name  string
+		ready func(context.Context) error
+		ctx   context.Context
+		code  int
+		body  string
+	}{
+		{"no dependencies", nil, context.Background(), http.StatusOK, "ready\n"},
+		{"dependency ready", func(context.Context) error { return nil }, context.Background(), http.StatusOK, "ready\n"},
+		{"dependency down", func(context.Context) error { return errors.New("down") }, context.Background(), http.StatusServiceUnavailable, "unavailable\n"},
+		{"request cancelled", func(ctx context.Context) error { return ctx.Err() }, cancelled, http.StatusServiceUnavailable, "unavailable\n"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			response := httptest.NewRecorder()
+			request := httptest.NewRequestWithContext(tt.ctx, http.MethodGet, "/readyz", nil)
+			New(tt.ready).ServeHTTP(response, request)
+			if response.Code != tt.code || response.Body.String() != tt.body {
+				t.Fatalf("readiness = %d %q", response.Code, response.Body.String())
+			}
+		})
+	}
+}
+
+func TestUnknownRouteAndMethod(t *testing.T) {
+	for _, tt := range []struct {
+		method, path string
+		code         int
+	}{
+		{http.MethodGet, "/missing", http.StatusNotFound},
+		{http.MethodPost, "/healthz", http.StatusMethodNotAllowed},
+	} {
+		response := httptest.NewRecorder()
+		New(nil).ServeHTTP(response, httptest.NewRequest(tt.method, tt.path, nil))
+		if response.Code != tt.code {
+			t.Errorf("%s %s = %d, want %d", tt.method, tt.path, response.Code, tt.code)
+		}
+	}
+}
+
+type failingListener struct {
+	net.Listener
+	err error
+}
+
+func (l failingListener) Accept() (net.Conn, error) {
+	return nil, l.err
+}
+
+func TestServeListenerFailure(t *testing.T) {
+	inner, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer inner.Close()
+	want := errors.New("accept failed")
+	err = Serve(t.Context(), failingListener{Listener: inner, err: want}, nil)
+	if !errors.Is(err, want) {
+		t.Fatalf("Serve = %v, want %v", err, want)
+	}
+}
+
+func TestServeGracefulShutdown(t *testing.T) {
+	l, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	started := make(chan struct{})
+	release := make(chan struct{})
+	ready := func(context.Context) error {
+		close(started)
+		<-release
+		return nil
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() {
+		done <- Serve(ctx, l, ready)
+	}()
+	responses := make(chan string, 1)
+	go func() {
+		resp, err := http.Get("http://" + l.Addr().String() + "/readyz")
+		if err != nil {
+			responses <- err.Error()
+			return
+		}
+		defer resp.Body.Close()
+		body, _ := io.ReadAll(resp.Body)
+		responses <- string(body)
+	}()
+	<-started
+	cancel()
+	close(release)
+	if got := <-responses; got != "ready\n" {
+		t.Fatalf("in-flight request = %q", got)
+	}
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("Serve = %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("Serve did not return after cancellation")
+	}
+}

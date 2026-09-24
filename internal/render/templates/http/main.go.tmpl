@@ -1,0 +1,30 @@
+package main
+
+import (
+	"context"
+	"fmt"
+	"net"
+	"os"
+	"os/signal"
+	"syscall"
+
+	{{quote (print .Config.Project.Module "/internal/httpserver")}}
+)
+
+func main() {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	addr := os.Getenv("HTTP_ADDR")
+	if addr == "" {
+		addr = ":8080"
+	}
+	l, err := net.Listen("tcp", addr)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	if err := httpserver.Serve(ctx, l, nil); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+}

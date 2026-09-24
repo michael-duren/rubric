@@ -1,0 +1,16 @@
+package httpserver
+
+import (
+	"context"
+	"net/http"
+
+	"github.com/go-chi/chi/v5"
+)
+
+// New returns the service's HTTP handler; ready checks external dependencies and may be nil.
+func New(ready func(context.Context) error) http.Handler {
+	r := chi.NewRouter()
+	r.Get("/healthz", health)
+	r.Get("/readyz", readiness(ready))
+	return r
+}
