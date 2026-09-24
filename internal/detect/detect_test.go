@@ -298,6 +298,17 @@ func TestRubricOutputsAreNotEvidence(t *testing.T) {
 	}
 }
 
+func TestTemplDetected(t *testing.T) {
+	root := t.TempDir()
+	write(t, root, map[string]string{
+		"go.mod":       gomod,
+		"web/views.go": "package web\n\nimport \"github.com/a-h/templ\"\n\nvar _ templ.Component\n",
+	})
+	if facts := inspect(t, root); !has(facts, "features.web", "templ") {
+		t.Fatalf("evidence = %+v", facts.Evidence)
+	}
+}
+
 func TestBuildConstrainedMainIsNotAnEntryPoint(t *testing.T) {
 	root := t.TempDir()
 	write(t, root, map[string]string{

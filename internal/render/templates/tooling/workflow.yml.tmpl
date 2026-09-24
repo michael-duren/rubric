@@ -44,9 +44,19 @@ jobs:
       - name: Check generated code
         run: [[.Run "generate"]] && git diff --exit-code
 [[- end]]
+[[- if .Templ]]
+      - name: Check generated templ code
+        run: [[.Run "generate-templ"]] && git diff --exit-code
+[[- end]]
 [[- if .Integration]]
       - name: Integration tests
         env:
           TEST_DATABASE_URL: postgres://postgres@127.0.0.1:5432/rubric_test?sslmode=disable
         run: [[.Run "test-integration"]]
+[[- end]]
+[[- if .E2E]]
+      - name: Install Playwright browsers
+        run: go run [[.PlaywrightLauncher]] install --with-deps chromium
+      - name: End-to-end tests
+        run: [[.Run "test-e2e"]]
 [[- end]]

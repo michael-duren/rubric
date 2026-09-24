@@ -1,0 +1,95 @@
+package web
+
+import (
+	"context"
+	"errors"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"sync"
+	"testing"
+
+	"github.com/a-h/templ"
+)
+
+func get(t *testing.T, handler http.HandlerFunc, method, path string) *httptest.ResponseRecorder {
+	t.Helper()
+	response := httptest.NewRecorder()
+	handler(response, httptest.NewRequest(method, path, nil))
+	return response
+}
+
+func TestPageEscapesTitle(t *testing.T) {
+	h := New(`<script>alert("x")</script>`)
+	response := get(t, h.Page, http.MethodGet, "/")
+	body := response.Body.String()
+	if response.Code != http.StatusOK || strings.Contains(body, `<script>alert`) || !strings.Contains(body, "&lt;script&gt;") {
+		t.Fatalf("page = %d\n%s", response.Code, body)
+	}
+	if got := response.Header().Get("Content-Type"); got != "text/html; charset=utf-8" {
+		t.Fatalf("content type = %q", got)
+	}
+}
+
+func TestPageLoadsAssets(t *testing.T) {
+	body := get(t, New("demo").Page, http.MethodGet, "/").Body.String()
+	for _, want := range []string{`src="/static/htmx.min.js"`, `src="/static/alpine.min.js"`, `hx-post="/increment"`, `x-data=`, `<span id="count">0</span>`} {
+		if !strings.Contains(body, want) {
+			t.Errorf("page missing %s", want)
+		}
+	}
+}
+
+func TestIncrement(t *testing.T) {
+	h := New("demo")
+	for want := 1; want <= 2; want++ {
+		body := get(t, h.Increment, http.MethodPost, "/increment").Body.String()
+		if !strings.HasPrefix(body, `<div id="counter">`) || !strings.Contains(body, `<span id="count">`+string(rune('0'+want))+`</span>`) {
+			t.Fatalf("fragment %d = %s", want, body)
+		}
+	}
+	if body := get(t, h.Page, http.MethodGet, "/").Body.String(); !strings.Contains(body, `<span id="count">2</span>`) {
+		t.Fatalf("page does not show the counter:\n%s", body)
+	}
+}
+
+func TestConcurrentIncrements(t *testing.T) {
+	h := New("demo")
+	var wg sync.WaitGroup
+	for range 50 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			get(t, h.Increment, http.MethodPost, "/increment")
+		}()
+	}
+	wg.Wait()
+	if body := get(t, h.Page, http.MethodGet, "/").Body.String(); !strings.Contains(body, `<span id="count">50</span>`) {
+		t.Fatalf("lost updates:\n%s", body)
+	}
+}
+
+func TestStaticAssets(t *testing.T) {
+	h := New("demo")
+	for _, name := range []string{"htmx.min.js", "alpine.min.js"} {
+		response := get(t, h.Static, http.MethodGet, "/static/"+name)
+		if response.Code != http.StatusOK || !strings.Contains(response.Header().Get("Content-Type"), "javascript") || response.Body.Len() < 1000 {
+			t.Fatalf("%s = %d %q (%d bytes)", name, response.Code, response.Header().Get("Content-Type"), response.Body.Len())
+		}
+	}
+	for _, path := range []string{"/static/missing.js", "/static/"} {
+		if response := get(t, h.Static, http.MethodGet, path); response.Code != http.StatusNotFound {
+			t.Fatalf("%s = %d", path, response.Code)
+		}
+	}
+}
+
+func TestRenderFailure(t *testing.T) {
+	failing := templ.ComponentFunc(func(context.Context, io.Writer) error { return errors.New("boom") })
+	response := httptest.NewRecorder()
+	render(response, httptest.NewRequest(http.MethodGet, "/", nil), failing)
+	if response.Code != http.StatusInternalServerError {
+		t.Fatalf("status = %d", response.Code)
+	}
+}

@@ -1,0 +1,33 @@
+package web
+
+import "strconv"
+
+templ page(title string, count int) {
+	<!DOCTYPE html>
+	<html lang="en">
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<title>{ title }</title>
+			<script src="/static/htmx.min.js" defer></script>
+			<script src="/static/alpine.min.js" defer></script>
+		</head>
+		<body>
+			<main>
+				<h1>{ title }</h1>
+				@counter(count)
+				<section x-data="{ open: false }">
+					<button type="button" id="toggle" x-on:click="open = !open">Toggle details</button>
+					<p id="details" x-show="open" x-cloak>Rendered with templ, updated with htmx, and toggled with Alpine.js.</p>
+				</section>
+			</main>
+		</body>
+	</html>
+}
+
+templ counter(count int) {
+	<div id="counter">
+		<span id="count">{ strconv.Itoa(count) }</span>
+		<button type="button" id="increment" hx-post="/increment" hx-target="#counter" hx-swap="outerHTML">Increment</button>
+	</div>
+}

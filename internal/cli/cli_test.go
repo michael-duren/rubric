@@ -110,7 +110,7 @@ func TestHelp(t *testing.T) {
 		t.Fatalf("root help: %+v", r)
 	}
 	r = invoke(t.Context(), t, "init", "--help")
-	for _, want := range []string{"--module", "--non-interactive", "--dry-run", "--format", "--entry-point", "--clear-commands", "--app-config"} {
+	for _, want := range []string{"--module", "--non-interactive", "--dry-run", "--format", "--entry-point", "--clear-commands", "--app-config", "--web", "--e2e"} {
 		if !strings.Contains(r.out, want) {
 			t.Errorf("init help missing %s", want)
 		}
@@ -377,5 +377,16 @@ func TestProcessHelpUsageAndStreams(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(root, "rubric.yaml")); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestWebFlags(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "p")
+	r := invoke(t.Context(), t, "init", root, "--module", "example.com/web", "--http", "chi", "--web", "htmx", "--e2e", "playwright", "--dry-run", "--format", "json")
+	if r.code != 0 || !strings.Contains(r.out, `"web": "htmx"`) || !strings.Contains(r.out, `"e2e": "playwright"`) {
+		t.Fatalf("exit %d\n%s", r.code, r.out)
+	}
+	if r := invoke(t.Context(), t, "init", root, "--module", "example.com/web", "--web", "htmx", "--format", "json"); r.code != 2 {
+		t.Fatalf("web without http accepted: exit %d", r.code)
 	}
 }

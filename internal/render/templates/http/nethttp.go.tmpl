@@ -4,6 +4,10 @@ package httpserver
 import (
 	"context"
 	"net/http"
+{{- if .Web}}
+
+	{{quote (print .Config.Project.Module "/internal/web")}}
+{{- end}}
 )
 
 // New returns the service's HTTP handler; ready checks external dependencies and may be nil.
@@ -11,5 +15,11 @@ func New(ready func(context.Context) error) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", health)
 	mux.HandleFunc("GET /readyz", readiness(ready))
+{{- if .Web}}
+	ui := web.New({{quote .Config.Project.Name}})
+	mux.HandleFunc("GET /{$}", ui.Page)
+	mux.HandleFunc("POST /increment", ui.Increment)
+	mux.HandleFunc("GET /static/", ui.Static)
+{{- end}}
 	return mux
 }

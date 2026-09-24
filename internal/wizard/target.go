@@ -123,6 +123,10 @@ func (m Model) shown(f field) bool {
 		return m.value("features.database") != "none"
 	case "project.starter":
 		return m.mode == "new" && !executableSelected(m)
+	case "features.web":
+		return m.value("features.http") != "none"
+	case "features.e2e":
+		return m.value("features.http") != "none" && m.value("features.web") == "htmx"
 	}
 	return true
 }

@@ -15,6 +15,8 @@ const (
 	bubbletea = "charm.land/bubbletea/v2"
 	viper     = "github.com/spf13/viper"
 	sqlmock   = "github.com/DATA-DOG/go-sqlmock"
+	templ     = "github.com/a-h/templ"
+	pwgo      = "github.com/mxschmitt/playwright-go"
 )
 
 var versions = map[string]string{
@@ -25,6 +27,8 @@ var versions = map[string]string{
 	bubbletea: "v2.0.9",
 	viper:     "v1.21.0",
 	sqlmock:   "v1.5.2",
+	templ:     "v0.3.1020",
+	pwgo:      "v0.6201.1",
 }
 
 var choices = map[string]map[string]string{
@@ -34,6 +38,8 @@ var choices = map[string]map[string]string{
 	"cli":      {"none": "", "flag": "", "cobra": cobra},
 	"tui":      {"none": "", "bubbletea": bubbletea},
 	"config":   {"stdlib": "", "viper": viper},
+	"web":      {"": "", "none": "", "htmx": templ},
+	"e2e":      {"": "", "none": "", "playwright": pwgo},
 }
 
 // Dependencies returns the pinned module versions required by the selected features.
@@ -41,7 +47,7 @@ func Dependencies(f config.Features) (map[string]string, error) {
 	deps := map[string]string{}
 	for _, sel := range []struct{ name, value string }{
 		{"http", f.HTTP}, {"database", f.Database}, {"access", f.Access},
-		{"cli", f.CLI}, {"tui", f.TUI}, {"config", f.Config},
+		{"cli", f.CLI}, {"tui", f.TUI}, {"config", f.Config}, {"web", f.Web}, {"e2e", f.E2E},
 	} {
 		module, ok := choices[sel.name][sel.value]
 		if !ok {
@@ -66,9 +72,11 @@ func Cases() []config.Features {
 			for _, cli := range []string{"none", "flag", "cobra"} {
 				for _, tui := range []string{"none", "bubbletea"} {
 					for _, cfg := range []string{"stdlib", "viper"} {
-						out = append(out, config.Features{
-							HTTP: http, Database: store[0], Access: store[1], CLI: cli, TUI: tui, Config: cfg,
-						})
+						for _, web := range webChoices(http) {
+							out = append(out, config.Features{
+								HTTP: http, Database: store[0], Access: store[1], CLI: cli, TUI: tui, Config: cfg, Web: web[0], E2E: web[1],
+							})
+						}
 					}
 				}
 			}
@@ -77,8 +85,17 @@ func Cases() []config.Features {
 	return out
 }
 
+func webChoices(http string) [][2]string {
+	if http == "none" {
+		return [][2]string{{"none", "none"}}
+	}
+	return [][2]string{{"none", "none"}, {"htmx", "none"}, {"htmx", "playwright"}}
+}
+
 var tools = map[string]struct{ path, version string }{
 	"sqlc":          {"github.com/sqlc-dev/sqlc/cmd/sqlc", "v1.31.1"},
+	"templ":         {"github.com/a-h/templ/cmd/templ", "v0.3.1020"},
+	"playwright":    {"github.com/mxschmitt/playwright-go/cmd/playwright", "v0.6201.1"},
 	"golangci-lint": {"github.com/golangci/golangci-lint/v2/cmd/golangci-lint", "v2.13.2"},
 }
 
@@ -90,6 +107,12 @@ func Tools(f config.Features, t config.Tooling) map[string]string {
 	}
 	if t.Lint {
 		out["golangci-lint"] = tools["golangci-lint"].version
+	}
+	if f.Web == "htmx" {
+		out["templ"] = tools["templ"].version
+	}
+	if f.E2E == "playwright" {
+		out["playwright"] = tools["playwright"].version
 	}
 	return out
 }

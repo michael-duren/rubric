@@ -229,6 +229,12 @@ func (m Model) request() initialize.Request {
 	if m.value("features.database") == "none" {
 		delete(req.Overrides, "features.access")
 	}
+	if m.value("features.http") == "none" {
+		delete(req.Overrides, "features.web")
+	}
+	if !m.visible("features.e2e") {
+		delete(req.Overrides, "features.e2e")
+	}
 	req.Decisions = maps.Clone(m.decisions)
 	return req
 }

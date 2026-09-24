@@ -10,8 +10,8 @@ import (
 
 func TestCasesEnumerateAllUniqueCombinations(t *testing.T) {
 	cases := Cases()
-	if len(cases) != 180 {
-		t.Fatalf("len = %d, want 180", len(cases))
+	if len(cases) != 420 {
+		t.Fatalf("len = %d, want 420", len(cases))
 	}
 	seen := map[config.Features]bool{}
 	for _, c := range cases {
@@ -75,6 +75,25 @@ func TestTools(t *testing.T) {
 	}
 	if got := Launcher("golangci-lint"); got != "github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.13.2" {
 		t.Fatalf("launcher = %s", got)
+	}
+}
+
+func TestWebDependenciesAndTools(t *testing.T) {
+	f := config.Features{HTTP: "chi", Database: "none", Access: "none", CLI: "none", TUI: "none", Config: "stdlib", Web: "htmx", E2E: "playwright"}
+	got, err := Dependencies(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got["github.com/a-h/templ"] != "v0.3.1020" || got["github.com/mxschmitt/playwright-go"] != "v0.6201.1" {
+		t.Fatalf("deps = %v", got)
+	}
+	tools := Tools(f, config.Tooling{})
+	if tools["templ"] != "v0.3.1020" || tools["playwright"] != "v0.6201.1" {
+		t.Fatalf("tools = %v", tools)
+	}
+	if Launcher("templ") != "github.com/a-h/templ/cmd/templ@v0.3.1020" ||
+		Launcher("playwright") != "github.com/mxschmitt/playwright-go/cmd/playwright@v0.6201.1" {
+		t.Fatal("launchers")
 	}
 }
 

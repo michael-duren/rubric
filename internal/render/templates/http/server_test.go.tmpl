@@ -7,6 +7,9 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+{{- if .Web}}
+	"strings"
+{{- end}}
 	"testing"
 	"time"
 )
@@ -130,3 +133,26 @@ func TestServeGracefulShutdown(t *testing.T) {
 		t.Fatal("Serve did not return after cancellation")
 	}
 }
+{{- if .Web}}
+
+func TestWebRoutes(t *testing.T) {
+	handler := New(nil)
+	for _, tt := range []struct {
+		method, path string
+		code         int
+		body         string
+	}{
+		{http.MethodGet, "/", http.StatusOK, `hx-post="/increment"`},
+		{http.MethodPost, "/increment", http.StatusOK, `<span id="count">1</span>`},
+		{http.MethodGet, "/static/htmx.min.js", http.StatusOK, "htmx"},
+		{http.MethodPost, "/", http.StatusMethodNotAllowed, ""},
+		{http.MethodGet, "/increment", http.StatusMethodNotAllowed, ""},
+	} {
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, httptest.NewRequest(tt.method, tt.path, nil))
+		if response.Code != tt.code || !strings.Contains(response.Body.String(), tt.body) {
+			t.Errorf("%s %s = %d %.80q", tt.method, tt.path, response.Code, response.Body.String())
+		}
+	}
+}
+{{- end}}

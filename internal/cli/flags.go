@@ -30,6 +30,8 @@ var stringFlags = []struct{ name, key, usage string }{
 	{"cli", "features.cli", "CLI executable: none, flag, or cobra"},
 	{"tui", "features.tui", "terminal UI: none or bubbletea"},
 	{"app-config", "features.config", "runtime configuration: stdlib or viper"},
+	{"web", "features.web", "web UI: none or htmx (htmx + Alpine.js + templ; requires --http)"},
+	{"e2e", "features.e2e", "browser tests: none or playwright (requires --web htmx)"},
 }
 
 var boolFlags = []struct{ name, key, usage string }{

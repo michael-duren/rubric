@@ -5,6 +5,31 @@ import (
 	"testing"
 )
 
+func TestWebAndE2EDefaultsAndDecode(t *testing.T) {
+	c := Defaults()
+	if c.Features.Web != "none" || c.Features.E2E != "none" {
+		t.Fatalf("defaults = %+v", c.Features)
+	}
+	doc, err := Decode([]byte("features:\n  http: chi\n  web: htmx\n  e2e: playwright\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := Resolve(Defaults(), doc.Values)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Features.Web != "htmx" || got.Features.E2E != "playwright" {
+		t.Fatalf("features = %+v", got.Features)
+	}
+	out, err := Encode(Document{}, Defaults())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(out), "web: none") || !strings.Contains(string(out), "e2e: none") {
+		t.Fatalf("encoded:\n%s", out)
+	}
+}
+
 func TestYAMLEncodeRemovesDroppedMapKeys(t *testing.T) {
 	doc, err := Decode([]byte("generator:\n  tools:\n    golangci-lint: v2.13.2 # pinned\n    sqlc: v1.31.1\n"))
 	if err != nil {

@@ -20,6 +20,15 @@ var applicationChoices = []struct {
 	{"features.cli", "CLI", []string{"none", "flag", "cobra"}, func(c config.Config) string { return c.Features.CLI }},
 	{"features.tui", "Terminal UI", []string{"none", "bubbletea"}, func(c config.Config) string { return c.Features.TUI }},
 	{"features.config", "Runtime configuration", []string{"stdlib", "viper"}, func(c config.Config) string { return c.Features.Config }},
+	{"features.web", "Web UI (htmx, Alpine.js, templ)", []string{"none", "htmx"}, func(c config.Config) string { return orNone(c.Features.Web) }},
+	{"features.e2e", "Browser tests", []string{"none", "playwright"}, func(c config.Config) string { return orNone(c.Features.E2E) }},
+}
+
+func orNone(v string) string {
+	if v == "" {
+		return "none"
+	}
+	return v
 }
 
 func applicationFields(mode string, c config.Config) []field {
@@ -71,6 +80,12 @@ func (m Model) choose(f field, delta int) (tea.Model, tea.Cmd) {
 	case f.key == "features.database" && next == "none":
 		if i := m.index("features.access"); i >= 0 {
 			m.fields[i].value, m.fields[i].dirty = "sql", false
+		}
+	case f.key == "features.http" && next == "none", f.key == "features.web" && next == "none":
+		for _, key := range []string{"features.web", "features.e2e"} {
+			if i := m.index(key); i >= 0 && (key == "features.e2e" || f.key == "features.http") {
+				m.fields[i].value, m.fields[i].dirty = "none", false
+			}
 		}
 	}
 	return m, nil

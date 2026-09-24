@@ -29,7 +29,8 @@ type toolingData struct {
 	Build, Test             string
 	Lint, Makefile          bool
 	Postgres, Generate      bool
-	Integration             bool
+	Integration, E2E, Templ bool
+	PlaywrightLauncher      string
 }
 
 // Run returns the shell text that performs op through Make when enabled, otherwise through the check script.
@@ -80,14 +81,15 @@ func Tooling(c config.Config) ([]File, error) {
 
 func newToolingData(c config.Config) toolingData {
 	d := toolingData{
-		Config:       c,
-		GoVersion:    newestGo(c.Project.Go, c.Generator.Go, config.GoBaseline),
-		LintLauncher: catalog.Launcher("golangci-lint"),
-		Build:        "go build ./...",
-		Test:         "go test ./...",
-		Lint:         c.Tooling.Lint,
-		Makefile:     c.Tooling.Makefile,
-		Postgres:     c.Features.Database == "postgres",
+		Config:             c,
+		GoVersion:          newestGo(c.Project.Go, c.Generator.Go, config.GoBaseline),
+		LintLauncher:       catalog.Launcher("golangci-lint"),
+		PlaywrightLauncher: catalog.Launcher("playwright"),
+		Build:              "go build ./...",
+		Test:               "go test ./...",
+		Lint:               c.Tooling.Lint,
+		Makefile:           c.Tooling.Makefile,
+		Postgres:           c.Features.Database == "postgres",
 	}
 	for _, cmd := range c.Commands {
 		line := commandLine(cmd)
@@ -104,6 +106,8 @@ func newToolingData(c config.Config) toolingData {
 			})
 			d.Generate = d.Generate || cmd.Name == "generate"
 			d.Integration = d.Integration || cmd.Name == "test-integration"
+			d.E2E = d.E2E || cmd.Name == "test-e2e"
+			d.Templ = d.Templ || cmd.Name == "generate-templ"
 		}
 	}
 	return d

@@ -23,6 +23,8 @@ var (
 	clis      = []string{"none", "flag", "cobra"}
 	tuis      = []string{"none", "bubbletea"}
 	configs   = []string{"stdlib", "viper"}
+	webs      = []string{"none", "htmx", ""}
+	e2es      = []string{"none", "playwright", ""}
 	envName   = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
 )
 
@@ -58,6 +60,7 @@ func Validate(cfg Config, mode string) error {
 		"project.name": cfg.Project.Name, "project.description": cfg.Project.Description,
 		"features.http": cfg.Features.HTTP, "features.database": cfg.Features.Database, "features.access": cfg.Features.Access,
 		"features.cli": cfg.Features.CLI, "features.tui": cfg.Features.TUI, "features.config": cfg.Features.Config,
+		"features.web": cfg.Features.Web, "features.e2e": cfg.Features.E2E,
 	} {
 		if hasMarker(value) {
 			fail("%s: must not contain Rubric guidance markers", key)
@@ -85,6 +88,14 @@ func Validate(cfg Config, mode string) error {
 		enum(fail, "features.cli", f.CLI, clis)
 		enum(fail, "features.tui", f.TUI, tuis)
 		enum(fail, "features.config", f.Config, configs)
+		enum(fail, "features.web", f.Web, webs)
+		enum(fail, "features.e2e", f.E2E, e2es)
+		if f.Web == "htmx" && f.HTTP == "none" {
+			fail("features.web: htmx requires an HTTP server; select nethttp or chi")
+		}
+		if f.E2E == "playwright" && f.Web != "htmx" {
+			fail("features.e2e: playwright requires the htmx web UI")
+		}
 		if f.Database == "none" && f.Access != "none" {
 			fail("features.access: %q requires a database", f.Access)
 		}
