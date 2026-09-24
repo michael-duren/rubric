@@ -10,14 +10,14 @@
 #   - Repository admins bypass the ruleset ("exempt list"). GitHub rulesets cannot
 #     list individual users on personal repositories, so the owner is exempted
 #     through the admin role; on a personal repo the owner is the only admin.
-#   - Head branches are deleted automatically after pull requests merge.
+#   - Pull requests merge by squash only, and head branches are deleted after merge.
 #
 # Usage:
 #   scripts/setup-branch-protection.sh [--repo OWNER/NAME] [--branch NAME]
 #       [--approvals N] [--check NAME ...] [--code-owners] [--dry-run]
 #
-# Defaults: current repository, its default branch, 1 approval, and the checks
-# "test" and "acceptance (0)".."acceptance (3)" from .github/workflows/ci.yml.
+# Defaults: current repository, its default branch, 1 approval, and the single "ci" gate
+# check from .github/workflows/ci.yml, which passes when path-filtered jobs pass or are skipped.
 set -euo pipefail
 
 RULESET_NAME="default-branch-protection"
@@ -60,7 +60,7 @@ if [ -z "$branch" ]; then
 	branch=$(gh repo view "$repo" --json defaultBranchRef --jq .defaultBranchRef.name)
 fi
 if [ ${#checks[@]} -eq 0 ]; then
-	checks=("test" "acceptance (0)" "acceptance (1)" "acceptance (2)" "acceptance (3)")
+	checks=("ci")
 fi
 
 permission=$(gh repo view "$repo" --json viewerPermission --jq .viewerPermission)
@@ -94,7 +94,7 @@ payload=$(jq -n \
 				require_code_owner_review: $code_owners,
 				require_last_push_approval: false,
 				required_review_thread_resolution: true,
-				allowed_merge_methods: ["merge", "squash", "rebase"]
+				allowed_merge_methods: ["squash"]
 			}},
 			{type: "required_status_checks", parameters: {
 				strict_required_status_checks_policy: true,
@@ -111,8 +111,12 @@ echo "Branch:      $branch"
 echo "Approvals:   $approvals (code owners: $code_owners)"
 echo "Checks:      $(printf '%s, ' "${checks[@]}" | sed 's/, $//')"
 echo "Exempt:      repository admins (bypass: always)"
-echo "Ruleset:     ${existing:+update #$existing}${existing:-create}"
-echo "Auto-delete: head branches after merge"
+if [ -n "$existing" ]; then
+	echo "Ruleset:     update #$existing"
+else
+	echo "Ruleset:     create"
+fi
+echo "Merging:     squash only; head branches auto-deleted after merge"
 
 if $dry_run; then
 	echo
@@ -127,4 +131,5 @@ else
 	echo "$payload" | gh api --method POST "repos/$repo/rulesets" --input - --jq '"created ruleset #\(.id)"'
 fi
 
-gh api --method PATCH "repos/$repo" -F delete_branch_on_merge=true --jq '"delete_branch_on_merge=\(.delete_branch_on_merge)"'
+gh api --method PATCH "repos/$repo" -F delete_branch_on_merge=true -F allow_squash_merge=true -F allow_merge_commit=false -F allow_rebase_merge=false \
+	--jq '"squash=\(.allow_squash_merge) merge_commit=\(.allow_merge_commit) rebase=\(.allow_rebase_merge) delete_branch_on_merge=\(.delete_branch_on_merge)"'
