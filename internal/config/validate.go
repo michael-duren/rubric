@@ -7,10 +7,13 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"unicode/utf8"
 
 	"golang.org/x/mod/modfile"
 	"golang.org/x/mod/module"
 )
+
+const maxNameRunes = 64
 
 var (
 	starters  = []string{"module", "runnable"}
@@ -44,6 +47,9 @@ func Validate(cfg Config, mode string) error {
 	}
 	if hasControl(cfg.Project.Name) {
 		fail("project.name: must not contain control characters")
+	}
+	if n := utf8.RuneCountInString(cfg.Project.Name); n > maxNameRunes {
+		fail("project.name: %d characters; the limit is %d", n, maxNameRunes)
 	}
 	if strings.ContainsRune(cfg.Project.Description, 0) {
 		fail("project.description: must not contain NUL")

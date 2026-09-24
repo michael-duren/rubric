@@ -298,6 +298,34 @@ func TestRubricOutputsAreNotEvidence(t *testing.T) {
 	}
 }
 
+func TestBuildConstrainedMainIsNotAnEntryPoint(t *testing.T) {
+	root := t.TempDir()
+	write(t, root, map[string]string{
+		"go.mod":               gomod,
+		"internal/gen/gen.go":  "package gen\n",
+		"internal/gen/tool.go": "//go:build ignore\n\npackage main\n\nimport \"github.com/spf13/cobra\"\n\nfunc main() { _ = cobra.Command{} }\n",
+	})
+	facts := inspect(t, root)
+	if len(facts.EntryPoints) != 0 || has(facts, "features.cli", "cobra") {
+		t.Fatalf("ignored file used: %+v", facts)
+	}
+}
+
+func TestPackageEvidence(t *testing.T) {
+	root := t.TempDir()
+	write(t, root, map[string]string{
+		"go.mod":                       gomod,
+		"main.go":                      "package main\n\nfunc main() {}\n",
+		"internal/store/store.go":      "package store\n",
+		"internal/store/store_test.go": "package store\n",
+		"cmd/api/main.go":              "package main\n\nfunc main() {}\n",
+	})
+	facts := inspect(t, root)
+	if !has(facts, "package", "internal/store") || has(facts, "package", "cmd/api") || has(facts, "package", ".") {
+		t.Fatalf("evidence = %+v", facts.Evidence)
+	}
+}
+
 func TestMainPackageWithoutMainFunc(t *testing.T) {
 	root := t.TempDir()
 	write(t, root, map[string]string{

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io/fs"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -239,6 +240,100 @@ func TestStaleSavedEntryPointFails(t *testing.T) {
 	}})
 	if len(p.Config.EntryPoints) != 1 {
 		t.Fatalf("correction not applied: %+v", p.Config.EntryPoints)
+	}
+}
+
+func savedYAML(t *testing.T, root string) config.Config {
+	t.Helper()
+	doc, err := config.Decode([]byte(read(t, root, "rubric.yaml")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	c, err := config.Resolve(config.Defaults(), doc.Values)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return c
+}
+
+func commandNames(cmds []config.Command) []string {
+	var out []string
+	for _, c := range cmds {
+		out = append(out, c.Name)
+	}
+	return out
+}
+
+func TestRerunKeepsUserRemovedCommandsAndEntryPoints(t *testing.T) {
+	root := t.TempDir()
+	req := newRequest(root, config.Patch{"features.cli": "flag", "features.http": "nethttp"})
+	if _, err := Apply(context.Background(), req, mustPrepare(t, req)); err != nil {
+		t.Fatal(err)
+	}
+	c := savedYAML(t, root)
+	c.Commands = slices.DeleteFunc(c.Commands, func(cmd config.Command) bool { return cmd.Name == "run-cli" })
+	c.EntryPoints = slices.DeleteFunc(c.EntryPoints, func(ep config.EntryPoint) bool { return ep.Dir == "cmd/cli" })
+	data, err := config.Encode(config.Document{}, c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	put(t, root, "rubric.yaml", string(data))
+	p := mustPrepare(t, Request{Target: root, Mode: "auto"})
+	if slices.Contains(commandNames(p.Config.Commands), "run-cli") {
+		t.Fatalf("removed command restored: %v", commandNames(p.Config.Commands))
+	}
+	if slices.ContainsFunc(p.Config.EntryPoints, func(ep config.EntryPoint) bool { return ep.Dir == "cmd/cli" }) {
+		t.Fatalf("removed entry point restored: %+v", p.Config.EntryPoints)
+	}
+}
+
+func TestRerunDropsCommandsOfDisabledTooling(t *testing.T) {
+	root := t.TempDir()
+	req := newRequest(root, config.Patch{"project.starter": "runnable", "tooling.lint": true})
+	if _, err := Apply(context.Background(), req, mustPrepare(t, req)); err != nil {
+		t.Fatal(err)
+	}
+	p := mustPrepare(t, Request{Target: root, Mode: "auto", Overrides: config.Patch{"tooling.lint": false}})
+	if slices.Contains(commandNames(p.Config.Commands), "lint") {
+		t.Fatalf("stale lint command kept: %v", commandNames(p.Config.Commands))
+	}
+	p = mustPrepare(t, Request{Target: root, Mode: "auto", Overrides: config.Patch{"tooling.makefile": true}})
+	if !slices.Contains(commandNames(p.Config.Commands), "lint") || !slices.Contains(commandNames(p.Config.Commands), "run") {
+		t.Fatalf("commands lost: %v", commandNames(p.Config.Commands))
+	}
+}
+
+func TestRerunKeepsGeneratedGuidance(t *testing.T) {
+	for _, patch := range []config.Patch{
+		{"features.http": "chi", "features.database": "postgres", "features.config": "viper", "features.cli": "flag"},
+		{"project.starter": "runnable", "features.database": "sqlite"},
+		{"features.tui": "bubbletea", "tooling.lint": true, "tooling.makefile": true},
+	} {
+		root := t.TempDir()
+		req := newRequest(root, patch)
+		if _, err := Apply(context.Background(), req, mustPrepare(t, req)); err != nil {
+			t.Fatal(err)
+		}
+		first := read(t, root, "AGENTS.md")
+		p := mustPrepare(t, Request{Target: root, Mode: "auto"})
+		for _, a := range p.Actions {
+			if a.File.Path == "AGENTS.md" && a.State != plan.StateUnchanged {
+				t.Fatalf("%v: rerun rewrote guidance:\n--- before\n%s\n--- after\n%s", patch, first, a.File.Data)
+			}
+		}
+	}
+}
+
+func TestRerunKeepsGeneratorRecord(t *testing.T) {
+	root := t.TempDir()
+	req := newRequest(root, config.Patch{"features.http": "chi", "features.database": "sqlite", "features.access": "sqlc"})
+	if _, err := Apply(context.Background(), req, mustPrepare(t, req)); err != nil {
+		t.Fatal(err)
+	}
+	saved := savedYAML(t, root)
+	p := mustPrepare(t, Request{Target: root, Mode: "auto"})
+	if !maps.Equal(p.Config.Generator.Dependencies, saved.Generator.Dependencies) || p.Config.Generator.Tools["sqlc"] != "v1.31.1" {
+		t.Fatalf("generator record changed: %+v vs saved %+v", p.Config.Generator, saved.Generator)
 	}
 }
 

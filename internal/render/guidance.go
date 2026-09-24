@@ -83,7 +83,7 @@ func stack(c config.Config, mode string) []string {
 	}
 	add("CLI", f.CLI)
 	add("TUI", f.TUI)
-	if f.Config != "stdlib" || mode == "new" && configPackage(c) {
+	if f.Config != "stdlib" || configPackage(c) && generated(c, mode, "internal/config") {
 		add("Configuration", f.Config)
 	}
 	return out
@@ -94,27 +94,47 @@ func configPackage(c config.Config) bool {
 	return f.HTTP != "none" || f.CLI != "none" || f.TUI != "none" || f.Database != "none" || f.Config == "viper"
 }
 
+func hasPackage(c config.Config, dir string) bool {
+	return slices.ContainsFunc(c.Evidence, func(e config.Evidence) bool { return e.Field == "package" && e.Value == dir })
+}
+
+func generated(c config.Config, mode, dir string) bool {
+	return mode == "new" || hasPackage(c, dir)
+}
+
+func hasEntryPoint(c config.Config, mode, dir string) bool {
+	return mode == "new" || slices.ContainsFunc(c.EntryPoints, func(ep config.EntryPoint) bool { return ep.Dir == dir })
+}
+
 func layout(c config.Config, mode string) []string {
 	var out []string
-	if mode != "new" {
-		for _, ep := range c.EntryPoints {
-			out = append(out, fmt.Sprintf("`%s`: executable entry point %s", ep.Dir, ep.Name))
-		}
-		return out
-	}
+	known := map[string]bool{}
 	for _, e := range executables {
-		if e.selected(c.Features) {
+		if e.selected(c.Features) && hasEntryPoint(c, mode, e.dir) && generated(c, mode, e.pkg) {
+			known[e.dir] = true
 			out = append(out,
 				fmt.Sprintf("`%s`: %s executable wiring, startup, and shutdown only", e.dir, e.name),
 				fmt.Sprintf("`%s`: %s behavior and its tests", e.pkg, e.name))
 		}
 	}
-	out = append(out, databaseGuidance(c)...)
-	if configPackage(c) {
+	if c.Features.Database != "none" && generated(c, mode, "internal/store") {
+		out = append(out, databaseGuidance(c)...)
+	}
+	if configPackage(c) && generated(c, mode, "internal/config") {
 		out = append(out, "`internal/config`: runtime settings loading and its tests")
 	}
-	if len(out) == 0 && c.Project.Starter == "runnable" {
+	if len(known) == 0 && c.Project.Starter == "runnable" && hasEntryPoint(c, mode, ".") {
+		known["."] = true
 		out = append(out, "`main.go`: minimal entry point; move behavior into a tested package as it grows")
+	}
+	if mode != "new" {
+		var extra []string
+		for _, ep := range c.EntryPoints {
+			if !known[ep.Dir] {
+				extra = append(extra, fmt.Sprintf("`%s`: executable entry point %s", ep.Dir, ep.Name))
+			}
+		}
+		out = append(extra, out...)
 	}
 	return out
 }

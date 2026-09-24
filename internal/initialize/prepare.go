@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"strings"
 
@@ -61,9 +62,12 @@ func Prepare(ctx context.Context, req Request) (plan.Plan, error) {
 		return inInput || inOverride
 	}
 	_, savedCommands := saved.Values["commands"]
-	_, savedEntries := saved.Values["entry_points"]
 	if mode == "existing" {
-		if err := reconcileExisting(&cfg, facts, explicit, savedEntries, savedCommands); err != nil {
+		previous, err := config.Resolve(config.Defaults(), detectionPatch(facts), saved.Values)
+		if err != nil {
+			return plan.Plan{}, &InputError{Cause: err}
+		}
+		if err := reconcileExisting(&cfg, previous, facts, explicit, savedCommands); err != nil {
 			return plan.Plan{}, err
 		}
 	} else {
@@ -75,9 +79,6 @@ func Prepare(ctx context.Context, req Request) (plan.Plan, error) {
 	cfg.Generator.Version = config.GeneratorVersion
 	cfg.Generator.Template = config.TemplateRevision
 	cfg.Generator.Go = config.GoBaseline
-	if mode == "existing" {
-		cfg.Generator.Dependencies = map[string]string{}
-	}
 	if err := config.Validate(cfg, mode); err != nil {
 		return plan.Plan{}, &InputError{Cause: err}
 	}
@@ -204,7 +205,7 @@ func detectionPatch(f detect.Facts) config.Patch {
 	return p
 }
 
-func reconcileExisting(cfg *config.Config, facts detect.Facts, explicit func(string) bool, savedEntries, savedCommands bool) error {
+func reconcileExisting(cfg *config.Config, previous config.Config, facts detect.Facts, explicit func(string) bool, savedCommands bool) error {
 	if explicit("project.module") && cfg.Project.Module != facts.Module {
 		return inputErr("project.module: %q does not match go.mod module %q", cfg.Project.Module, facts.Module)
 	}
@@ -220,13 +221,6 @@ func reconcileExisting(cfg *config.Config, facts detect.Facts, explicit func(str
 	for _, ep := range facts.EntryPoints {
 		detected[ep.Dir] = true
 	}
-	if !explicit("entry_points") && savedEntries && len(cfg.EntryPoints) > 0 {
-		for _, ep := range facts.EntryPoints {
-			if !slices.ContainsFunc(cfg.EntryPoints, func(e config.EntryPoint) bool { return e.Dir == ep.Dir }) {
-				cfg.EntryPoints = append(cfg.EntryPoints, ep)
-			}
-		}
-	}
 	for _, ep := range cfg.EntryPoints {
 		if !detected[ep.Dir] {
 			return inputErr("entry point %s (%s) has no main package; correct entry_points in rubric.yaml "+
@@ -236,14 +230,7 @@ func reconcileExisting(cfg *config.Config, facts detect.Facts, explicit func(str
 	switch {
 	case explicit("commands"):
 	case savedCommands && len(cfg.Commands) > 0:
-		saved := cfg.Commands
-		cfg.Commands = nil
-		for _, cmd := range render.Commands(*cfg, "existing") {
-			if !slices.ContainsFunc(saved, func(c config.Command) bool { return c.Name == cmd.Name }) {
-				saved = append(saved, cmd)
-			}
-		}
-		cfg.Commands = saved
+		cfg.Commands = reconcileCommands(cfg.Commands, derivedCommands(previous), derivedCommands(*cfg))
 	case savedCommands:
 	default:
 		cfg.Commands = nil
@@ -262,4 +249,31 @@ func reconcileExisting(cfg *config.Config, facts detect.Facts, explicit func(str
 		}
 	}
 	return nil
+}
+
+func derivedCommands(c config.Config) []config.Command {
+	c.Commands = nil
+	return append(render.Commands(c, "new"), render.Commands(c, "existing")...)
+}
+
+func reconcileCommands(saved, before, now []config.Command) []config.Command {
+	same := func(a config.Command) func(config.Command) bool {
+		return func(b config.Command) bool { return reflect.DeepEqual(a, b) }
+	}
+	named := func(name string) func(config.Command) bool {
+		return func(c config.Command) bool { return c.Name == name }
+	}
+	out := []config.Command{}
+	for _, cmd := range saved {
+		if slices.ContainsFunc(before, same(cmd)) && !slices.ContainsFunc(now, same(cmd)) {
+			continue
+		}
+		out = append(out, cmd)
+	}
+	for _, cmd := range now {
+		if !slices.ContainsFunc(out, named(cmd.Name)) && !slices.ContainsFunc(before, named(cmd.Name)) {
+			out = append(out, cmd)
+		}
+	}
+	return out
 }

@@ -4,6 +4,7 @@ package detect
 import (
 	"cmp"
 	"fmt"
+	"go/build"
 	"io/fs"
 	"os"
 	"path"
@@ -127,6 +128,10 @@ func (s *scan) visit(full string, d fs.DirEntry, err error) error {
 	}
 	if !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") {
 		return nil
+	}
+	match, err := build.Default.MatchFile(filepath.Dir(full), name)
+	if err != nil || !match {
+		return err
 	}
 	src, err := os.ReadFile(full)
 	if err != nil {

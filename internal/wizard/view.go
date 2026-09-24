@@ -2,6 +2,7 @@ package wizard
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
@@ -31,25 +32,44 @@ func (m Model) size() (int, int) {
 
 func (m Model) pageText() string {
 	width, height := m.size()
-	lines := []string{
+	header := []string{
 		fmt.Sprintf("rubric init - step %d/5: %s", min(int(m.stage), int(applyStage))+1, stageNames[m.stage]),
 		fmt.Sprintf("Target: %s (%s project)", target(m.base.Target), m.mode),
 		"",
 	}
+	var body []string
+	focus := -1
 	switch m.stage {
 	case targetStage, applicationStage, toolingStage:
-		lines = append(lines, m.formLines()...)
+		body = m.formLines()
 	case reviewStage:
-		lines = append(lines, m.reviewLines()...)
+		body, focus = m.reviewLines()
 	case applyStage:
-		lines = append(lines, "Applying the reviewed plan... press ctrl+c to cancel and restore.")
+		body = []string{"Applying the reviewed plan... press ctrl+c to cancel and restore."}
 	case doneStage:
-		lines = append(lines, m.doneLines()...)
+		body = m.doneLines()
 	}
+	var footer []string
 	if m.message != "" {
-		lines = append(lines, "", "! "+m.message)
+		footer = append(footer, "", "! "+m.message)
 	}
-	lines = append(lines, "", m.help())
+	footer = append(footer, "", m.help())
+	header, body, footer = clip(header, width), clip(body, width), clip(footer, width)
+	available := max(height-len(header)-len(footer), 1)
+	if len(body) > available {
+		start := 0
+		switch {
+		case m.stage == reviewStage && m.preview:
+			start = min(m.previewTop, len(body)-available)
+		case focus >= 0:
+			start = min(max(focus-available/2, 0), len(body)-available)
+		}
+		body = body[start : start+available]
+	}
+	return strings.Join(slices.Concat(header, body, footer), "\n")
+}
+
+func clip(lines []string, width int) []string {
 	var out []string
 	for _, line := range lines {
 		for _, part := range strings.Split(line, "\n") {
@@ -59,10 +79,7 @@ func (m Model) pageText() string {
 			out = append(out, part)
 		}
 	}
-	if len(out) > height {
-		out = append(out[:height-1], "...")
-	}
-	return strings.Join(out, "\n")
+	return out
 }
 
 func target(t string) string {
@@ -100,9 +117,14 @@ func (m Model) formLines() []string {
 	return lines
 }
 
-func (m Model) reviewLines() []string {
+func (m Model) reviewLines() ([]string, int) {
 	if m.preparing || !m.planned {
-		return []string{"Preparing the plan..."}
+		return []string{"Preparing the plan..."}, -1
+	}
+	if m.preview {
+		a := m.plan.Actions[m.actionCursor]
+		lines := []string{fmt.Sprintf("Preview of %s (%s): %s", a.File.Path, a.State, a.Reason)}
+		return append(lines, m.previewLines()...), -1
 	}
 	c := m.plan.Config
 	lines := []string{
@@ -111,10 +133,12 @@ func (m Model) reviewLines() []string {
 		fmt.Sprintf("Tooling: skills=%t lint=%t makefile=%t actions=%t", c.Tooling.Skills, c.Tooling.Lint, c.Tooling.Makefile, c.Tooling.Actions),
 		"",
 	}
+	focus := -1
 	for i, a := range m.plan.Actions {
 		marker := "  "
 		if i == m.actionCursor {
 			marker = "> "
+			focus = len(lines)
 		}
 		line := fmt.Sprintf("%s%-9s %s", marker, a.State, a.File.Path)
 		if d, ok := m.decisions[a.File.Path]; ok {
@@ -128,7 +152,7 @@ func (m Model) reviewLines() []string {
 	for _, rel := range m.plan.Obsolete {
 		lines = append(lines, "  obsolete  "+rel+" (kept; review and delete it yourself)")
 	}
-	return append(lines, m.previewLines()...)
+	return lines, focus
 }
 
 func (m Model) doneLines() []string {
@@ -168,6 +192,9 @@ func (m Model) recoveryLines() []string {
 func (m Model) help() string {
 	switch m.stage {
 	case reviewStage:
+		if m.preview {
+			return "up/down scroll - p close - ctrl+c cancel"
+		}
 		return "enter apply - up/down select - p preview - r replace - s skip - esc back - ctrl+c cancel"
 	case applyStage:
 		return "ctrl+c cancel"

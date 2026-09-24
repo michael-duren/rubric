@@ -15,6 +15,9 @@ func (s *scan) source(rel string, src []byte) error {
 		s.add("warning", "unparsable Go source", rel)
 		return nil
 	}
+	if dir := path.Dir(rel); f.Name.Name != "main" && dir != "." {
+		s.add("package", dir, dir)
+	}
 	if f.Name.Name == "main" && hasMainFunc(f) {
 		dir := path.Dir(rel)
 		s.facts.EntryPoints = append(s.facts.EntryPoints, config.EntryPoint{Name: s.entryName(dir), Dir: dir})

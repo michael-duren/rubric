@@ -137,7 +137,7 @@ func Normalize(cfg config.Config, mode string) (config.Config, error) {
 		}
 		cfg.Generator.Dependencies = deps
 	}
-	cfg.Generator.Tools = catalog.Tools(cfg.Features, cfg.Tooling, mode == "new")
+	cfg.Generator.Tools = catalog.Tools(cfg.Features, cfg.Tooling)
 	return cfg, nil
 }
 

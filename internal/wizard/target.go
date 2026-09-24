@@ -30,6 +30,8 @@ type field struct {
 	options []string
 	value   string
 	dirty   bool
+	cmds    []config.Command
+	entries []config.EntryPoint
 }
 
 func (f field) patchValue() any {
@@ -37,9 +39,9 @@ func (f field) patchValue() any {
 	case f.kind == toggleField:
 		return f.value == "true"
 	case f.key == "entry_points":
-		return parseEntryPoints(f.value)
+		return parseEntryPoints(f.value, f.entries)
 	case f.key == "commands":
-		return parseCommands(f.value)
+		return parseCommands(f.value, f.cmds)
 	}
 	return f.value
 }
@@ -49,8 +51,10 @@ func buildFields(mode string, c config.Config, req initialize.Request) []field {
 	if mode == "existing" {
 		fields = append(fields,
 			field{stage: targetStage, key: "project.description", label: "Description", kind: textField, value: c.Project.Description},
-			field{stage: targetStage, key: "entry_points", label: "Entry points (comma-separated dirs)", kind: textField, value: formatEntryPoints(c.EntryPoints)},
-			field{stage: targetStage, key: "commands", label: "Commands (name=args; ...)", kind: textField, value: formatCommands(c.Commands)},
+			field{stage: targetStage, key: "entry_points", label: "Entry points (comma-separated dirs)", kind: textField,
+				value: formatEntryPoints(c.EntryPoints), entries: c.EntryPoints},
+			field{stage: targetStage, key: "commands", label: "Commands (name=args; ...; unchanged rows keep dir, env, and exact arguments)",
+				kind: textField, value: formatCommands(c.Commands), cmds: c.Commands},
 		)
 	} else {
 		fields = append(fields,
@@ -256,33 +260,51 @@ func formatEntryPoints(eps []config.EntryPoint) string {
 	return strings.Join(dirs, ", ")
 }
 
-func parseEntryPoints(text string) []config.EntryPoint {
+func parseEntryPoints(text string, previous []config.EntryPoint) []config.EntryPoint {
 	out := []config.EntryPoint{}
 	for _, dir := range strings.Split(text, ",") {
-		if dir = strings.TrimSpace(dir); dir != "" {
-			name := path.Base(dir)
-			out = append(out, config.EntryPoint{Name: name, Dir: dir})
+		if dir = strings.TrimSpace(dir); dir == "" {
+			continue
 		}
+		ep := config.EntryPoint{Name: path.Base(dir), Dir: dir}
+		if i := slices.IndexFunc(previous, func(p config.EntryPoint) bool { return p.Dir == dir }); i >= 0 {
+			ep = previous[i]
+		}
+		out = append(out, ep)
 	}
 	return out
+}
+
+func formatCommand(c config.Command) string {
+	return c.Name + "=" + strings.Join(c.Argv, " ")
 }
 
 func formatCommands(cmds []config.Command) string {
 	parts := make([]string, len(cmds))
 	for i, c := range cmds {
-		parts[i] = c.Name + "=" + strings.Join(c.Argv, " ")
+		parts[i] = formatCommand(c)
 	}
 	return strings.Join(parts, "; ")
 }
 
-func parseCommands(text string) []config.Command {
+func parseCommands(text string, previous []config.Command) []config.Command {
 	out := []config.Command{}
-	for _, part := range strings.Split(text, ";") {
-		name, args, ok := strings.Cut(strings.TrimSpace(part), "=")
-		if !ok || strings.TrimSpace(name) == "" {
+	rest := strings.TrimSpace(text)
+	for rest != "" {
+		if i := slices.IndexFunc(previous, func(c config.Command) bool {
+			f := formatCommand(c)
+			return rest == f || strings.HasPrefix(rest, f+";")
+		}); i >= 0 {
+			out = append(out, previous[i])
+			rest = strings.TrimSpace(strings.TrimPrefix(strings.TrimPrefix(rest, formatCommand(previous[i])), ";"))
 			continue
 		}
-		out = append(out, config.Command{Name: strings.TrimSpace(name), Dir: ".", Argv: strings.Fields(args), Env: []string{}})
+		part, after, _ := strings.Cut(rest, ";")
+		rest = strings.TrimSpace(after)
+		name, args, ok := strings.Cut(strings.TrimSpace(part), "=")
+		if ok && strings.TrimSpace(name) != "" {
+			out = append(out, config.Command{Name: strings.TrimSpace(name), Dir: ".", Argv: strings.Fields(args), Env: []string{}})
+		}
 	}
 	return out
 }

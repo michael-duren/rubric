@@ -82,10 +82,10 @@ var tools = map[string]struct{ path, version string }{
 	"golangci-lint": {"github.com/golangci/golangci-lint/v2/cmd/golangci-lint", "v2.13.2"},
 }
 
-// Tools returns pinned versions of tools run through the Go toolchain; sqlc applies only to generated projects.
-func Tools(f config.Features, t config.Tooling, generated bool) map[string]string {
+// Tools returns pinned versions of the tools the selected features and tooling run through the Go toolchain.
+func Tools(f config.Features, t config.Tooling) map[string]string {
 	out := map[string]string{}
-	if generated && f.Access == "sqlc" {
+	if f.Access == "sqlc" {
 		out["sqlc"] = tools["sqlc"].version
 	}
 	if t.Lint {

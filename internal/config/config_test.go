@@ -320,6 +320,7 @@ func TestValidate(t *testing.T) {
 		{name: "valid new", mode: "new"},
 		{name: "local module name", mode: "new", edit: func(c *Config) { c.Project.Module = "app" }},
 		{name: "local nested module", mode: "new", edit: func(c *Config) { c.Project.Module = "tools/app" }},
+		{name: "long name", mode: "new", edit: func(c *Config) { c.Project.Name = strings.Repeat("n", 65) }, wantErr: "project.name"},
 		{name: "unicode description", mode: "new", edit: func(c *Config) { c.Project.Description = "Überprüfung — 検証 ✓" }},
 		{name: "schema 2", mode: "new", edit: func(c *Config) { c.Schema = 2 }, wantErr: "schema"},
 		{name: "empty module new", mode: "new", edit: func(c *Config) { c.Project.Module = "" }, wantErr: "project.module"},

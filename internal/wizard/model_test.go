@@ -322,7 +322,7 @@ func TestReviewDecisions(t *testing.T) {
 	if !strings.Contains(m.View().Content, "-all:") {
 		t.Fatalf("diff preview missing:\n%s", m.View().Content)
 	}
-	m = drive(t, m, key('s'))
+	m = drive(t, m, key('p'), key('s'))
 	if m.value("tooling.makefile") != "false" {
 		t.Fatal("skipping the Makefile did not disable it")
 	}

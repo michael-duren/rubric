@@ -68,6 +68,13 @@ func merge(old, fresh *yaml.Node) {
 			}
 			old.Content = append(old.Content, key, value)
 		}
+		kept := old.Content[:0]
+		for i := 0; i+1 < len(old.Content); i += 2 {
+			if lookup(fresh, old.Content[i].Value) != nil {
+				kept = append(kept, old.Content[i], old.Content[i+1])
+			}
+		}
+		old.Content = kept
 	case old.Kind == yaml.ScalarNode && fresh.Kind == yaml.ScalarNode:
 		old.Value = fresh.Value
 		old.Tag = fresh.Tag

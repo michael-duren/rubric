@@ -73,6 +73,8 @@ type Model struct {
 	planned      bool
 	actionCursor int
 	preview      bool
+	previewTop   int
+	tracker      *applyTracker
 	reqID        int
 	preparing    bool
 	cancelApply  context.CancelFunc
@@ -83,7 +85,7 @@ type Model struct {
 
 // New returns a wizard for req whose preparation and writes go through backend.
 func New(ctx context.Context, req initialize.Request, backend Backend) Model {
-	m := Model{ctx: ctx, base: req, backend: backend, mode: "new", decisions: map[string]string{}, reqID: 1}
+	m := Model{ctx: ctx, base: req, backend: backend, mode: "new", decisions: map[string]string{}, reqID: 1, tracker: newApplyTracker()}
 	if m.base.Mode == "" {
 		m.base.Mode = "auto"
 	}
@@ -239,10 +241,21 @@ func (m Model) startPrepare() (Model, tea.Cmd) {
 
 // Run shows the wizard on in and out until it finishes, returning the outcome and any apply error.
 func Run(ctx context.Context, req initialize.Request, in io.Reader, out io.Writer) (Outcome, error) {
-	m := New(ctx, req, Backend{Prepare: initialize.Prepare, Apply: initialize.Apply})
+	return runWith(ctx, req, Backend{Prepare: initialize.Prepare, Apply: initialize.Apply}, in, out)
+}
+
+func runWith(ctx context.Context, req initialize.Request, backend Backend, in io.Reader, out io.Writer) (Outcome, error) {
+	m := New(ctx, req, backend)
 	final, err := tea.NewProgram(m, tea.WithContext(ctx), tea.WithInput(in), tea.WithOutput(out)).Run()
 	if fm, ok := final.(Model); ok {
 		m = fm
+	}
+	if m.tracker.running() && m.stage != doneStage {
+		msg := <-m.tracker.done
+		m.outcome.Result, m.applyErr = msg.result, msg.err
+		m.outcome.Plan, m.outcome.Request = m.plan, m.request()
+		m.outcome.Cancelled = true
+		return m.outcome, errors.Join(context.Canceled, msg.err)
 	}
 	if errors.Is(err, tea.ErrProgramKilled) || errors.Is(err, tea.ErrInterrupted) || ctx.Err() != nil {
 		m.outcome.Cancelled = true
@@ -257,16 +270,18 @@ func Run(ctx context.Context, req initialize.Request, in io.Reader, out io.Write
 	return m.outcome, m.applyErr
 }
 
-func toolingFor(path string) string {
+func toolingFor(path string) []string {
 	switch {
+	case path == ".rubric/check.sh":
+		return []string{"tooling.makefile", "tooling.actions", "tooling.lint"}
 	case path == "Makefile":
-		return "tooling.makefile"
+		return []string{"tooling.makefile"}
 	case path == ".golangci.yml" || strings.HasPrefix(path, ".rubric/style/"):
-		return "tooling.lint"
+		return []string{"tooling.lint"}
 	case path == ".github/workflows/ci.yml":
-		return "tooling.actions"
+		return []string{"tooling.actions"}
 	case strings.HasPrefix(path, ".agents/skills/"):
-		return "tooling.skills"
+		return []string{"tooling.skills"}
 	}
-	return ""
+	return nil
 }

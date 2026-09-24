@@ -21,7 +21,7 @@ func sampleSettings(c config.Config, mode string) bool {
 }
 
 func settingsGuidance(c config.Config, mode string) []string {
-	if mode != "new" || !configPackage(c) {
+	if !configPackage(c) || !generated(c, mode, "internal/config") {
 		return nil
 	}
 	var out []string

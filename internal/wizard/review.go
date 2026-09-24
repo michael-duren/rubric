@@ -12,6 +12,17 @@ import (
 const maxDiffLines = 400
 
 func (m Model) reviewKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	if m.preview {
+		switch msg.String() {
+		case "p", "esc":
+			m.preview = false
+		case "up", "k":
+			m.previewTop = max(m.previewTop-1, 0)
+		case "down", "j":
+			m.previewTop = min(m.previewTop+1, max(len(m.previewLines())-1, 0))
+		}
+		return m, nil
+	}
 	switch msg.String() {
 	case "esc":
 		m.stage = toolingStage
@@ -27,7 +38,8 @@ func (m Model) reviewKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.actionCursor = min(m.actionCursor+1, max(len(m.plan.Actions)-1, 0))
 		return m, nil
 	case "p":
-		m.preview = !m.preview
+		m.preview = m.planned && len(m.plan.Actions) > 0
+		m.previewTop = 0
 		return m, nil
 	}
 	if m.preparing || !m.planned {
@@ -56,10 +68,12 @@ func (m Model) decide(choice string) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	m.decisions = maps.Clone(m.decisions)
-	if key := toolingFor(a.File.Path); choice == "s" && key != "" {
-		m = m.set(key, "false", true)
+	if keys := toolingFor(a.File.Path); choice == "s" && len(keys) > 0 {
+		for _, key := range keys {
+			m = m.set(key, "false", true)
+		}
 		for path := range m.decisions {
-			if toolingFor(path) == key {
+			if len(toolingFor(path)) > 0 {
 				delete(m.decisions, path)
 			}
 		}
@@ -77,7 +91,7 @@ func (m Model) previewLines() []string {
 		return nil
 	}
 	a := m.plan.Actions[m.actionCursor]
-	lines := []string{"", "Preview of " + a.File.Path + ":"}
+	var lines []string
 	if !a.Before.Exists {
 		for _, l := range splitLines(string(a.File.Data)) {
 			lines = append(lines, "+"+l)

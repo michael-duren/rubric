@@ -245,6 +245,26 @@ func TestToolingSkills(t *testing.T) {
 	}
 }
 
+func TestSkillFrontmatterQuotesProjectName(t *testing.T) {
+	c := testproject.Config()
+	c.Project.Name = `my: app # "x" 'y'`
+	c.Tooling.Skills = true
+	files, err := render.Files(c, "new")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, p := range skillPaths {
+		parts := strings.SplitN(string(testproject.File(t, files, p)), "---\n", 3)
+		var meta struct{ Name, Description string }
+		if err := yaml.Unmarshal([]byte(parts[1]), &meta); err != nil {
+			t.Fatalf("%s: %v\n%s", p, err, parts[1])
+		}
+		if !strings.Contains(meta.Description, c.Project.Name) {
+			t.Fatalf("%s description = %q", p, meta.Description)
+		}
+	}
+}
+
 func runCheck(t *testing.T, root string, args ...string) (string, error) {
 	t.Helper()
 	cmd := exec.CommandContext(t.Context(), args[0], args[1:]...)

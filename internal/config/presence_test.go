@@ -5,6 +5,22 @@ import (
 	"testing"
 )
 
+func TestYAMLEncodeRemovesDroppedMapKeys(t *testing.T) {
+	doc, err := Decode([]byte("generator:\n  tools:\n    golangci-lint: v2.13.2 # pinned\n    sqlc: v1.31.1\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg := Defaults()
+	cfg.Generator.Tools = map[string]string{"sqlc": "v1.31.1"}
+	out, err := Encode(doc, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(out), "golangci-lint") || !strings.Contains(string(out), "sqlc: v1.31.1") {
+		t.Fatalf("stale map key kept:\n%s", out)
+	}
+}
+
 func TestExplicitListPresenceSurvivesResolve(t *testing.T) {
 	got, err := Resolve(Defaults(), Patch{"project.module": "example.com/a"})
 	if err != nil {
