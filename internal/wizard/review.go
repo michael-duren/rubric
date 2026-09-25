@@ -48,7 +48,7 @@ func (m Model) reviewKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "enter":
 		if n := len(plan.Conflicts(m.plan)); n > 0 {
-			m.message = "resolve each conflict first: select it, then press r to replace or s to skip"
+			m.message = "resolve each conflict first: select it, then press r to replace or delete, or s to skip or keep"
 			return m, nil
 		}
 		return m.startApply()
@@ -68,9 +68,9 @@ func (m Model) decide(choice string) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	m.decisions = maps.Clone(m.decisions)
-	if keys := toolingFor(a.File.Path); choice == "s" && len(keys) > 0 {
+	if keys := toolingFor(a.File.Path); choice == "s" && len(keys) > 0 && !a.Obsolete {
 		for _, key := range keys {
-			m = m.set(key, "false", true)
+			m = m.setFeature(key, false)
 		}
 		for path := range m.decisions {
 			if len(toolingFor(path)) > 0 {
@@ -92,6 +92,12 @@ func (m Model) previewLines() []string {
 	}
 	a := m.plan.Actions[m.actionCursor]
 	var lines []string
+	if a.Obsolete {
+		for _, l := range splitLines(string(a.Before.Data)) {
+			lines = append(lines, "-"+l)
+		}
+		return lines
+	}
 	if !a.Before.Exists {
 		for _, l := range splitLines(string(a.File.Data)) {
 			lines = append(lines, "+"+l)

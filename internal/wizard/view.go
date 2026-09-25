@@ -33,16 +33,24 @@ func (m Model) size() (int, int) {
 
 func (m Model) pageText() string {
 	width, height := m.size()
+	title := "rubric init"
+	if m.update {
+		title = "rubric update"
+	}
 	header := []string{
-		titleStyle.Render("rubric init") + " " + m.steps(),
+		titleStyle.Render(title) + " " + m.steps(),
 		subtleStyle.Render(fmt.Sprintf("%s · %s project", target(m.base.Target), m.mode)),
 		"",
 	}
 	var body []string
 	focus := -1
-	switch m.stage {
-	case targetStage, applicationStage, toolingStage:
+	switch {
+	case m.stage == toolingStage && m.update:
+		body = m.menuLines()
+	case m.stage <= toolingStage:
 		body = m.formLines()
+	}
+	switch m.stage {
 	case reviewStage:
 		body, focus = m.reviewLines()
 	case applyStage:
@@ -71,13 +79,20 @@ func (m Model) pageText() string {
 }
 
 func (m Model) steps() string {
-	names := stageNames[:applyStage+1]
-	parts := make([]string, len(names))
-	for i, name := range names {
+	shown := []stage{targetStage, applicationStage, toolingStage, reviewStage, applyStage}
+	if m.update {
+		shown = shown[2:]
+	}
+	parts := make([]string, len(shown))
+	for i, s := range shown {
+		name := stageNames[s]
+		if m.update && s == toolingStage {
+			name = "Features"
+		}
 		switch {
-		case stage(i) == m.stage || m.stage == doneStage && stage(i) == applyStage:
+		case s == m.stage || m.stage == doneStage && s == applyStage:
 			parts[i] = stepNow.Render(name)
-		case stage(i) < m.stage:
+		case s < m.stage:
 			parts[i] = stepDone.Render("✓ " + name)
 		default:
 			parts[i] = stepLater.Render(name)
@@ -146,6 +161,9 @@ func (m Model) formLines() []string {
 			if f.value == "true" {
 				box = onStyle.Render("[x]")
 			}
+			if m.changed(f.key) {
+				label += decisionStyle.Render(" *")
+			}
 			lines = append(lines, fmt.Sprintf("%s%s %s %s", marker, box, label, subtleStyle.Render("- "+f.help)))
 		}
 	}
@@ -186,7 +204,8 @@ func (m Model) reviewLines() ([]string, int) {
 		subtleStyle.Render(fmt.Sprintf("Module %s, Go %s; HTTP %s, database %s/%s, CLI %s, TUI %s, config %s, web %s, e2e %s",
 			c.Project.Module, c.Project.Go, c.Features.HTTP, c.Features.Database, c.Features.Access, c.Features.CLI, c.Features.TUI,
 			c.Features.Config, orNone(c.Features.Web), orNone(c.Features.E2E))),
-		subtleStyle.Render(fmt.Sprintf("Tooling: skills=%t lint=%t makefile=%t actions=%t", c.Tooling.Skills, c.Tooling.Lint, c.Tooling.Makefile, c.Tooling.Actions)),
+		subtleStyle.Render(fmt.Sprintf("Tooling: skills=%s lint=%t makefile=%t actions=%t",
+			orNone(strings.Join(c.Tooling.Skills, ",")), c.Tooling.Lint, c.Tooling.Makefile, c.Tooling.Actions)),
 		"",
 	}
 	focus := -1
@@ -205,9 +224,6 @@ func (m Model) reviewLines() ([]string, int) {
 		}
 		lines = append(lines, line)
 	}
-	for _, rel := range m.plan.Obsolete {
-		lines = append(lines, "  "+decisionStyle.Render("obsolete ")+" "+rel+subtleStyle.Render(" (kept; review and delete it yourself)"))
-	}
 	return lines, focus
 }
 
@@ -223,6 +239,12 @@ func (m Model) doneLines() []string {
 	lines := []string{successStyle.Render(fmt.Sprintf("✓ Wrote %d file(s):", len(m.outcome.Result.Applied)))}
 	for _, p := range m.outcome.Result.Applied {
 		lines = append(lines, "  "+addedStyle.Render(p))
+	}
+	if deleted := m.outcome.Result.Deleted; len(deleted) > 0 {
+		lines = append(lines, successStyle.Render(fmt.Sprintf("✓ Deleted %d file(s):", len(deleted))))
+		for _, p := range deleted {
+			lines = append(lines, "  "+removedStyle.Render(p))
+		}
 	}
 	lines = append(lines, "", subtleStyle.Render("Rubric did not download dependencies or run your project's tests."))
 	if cmds := m.plan.Config.Commands; len(cmds) > 0 {
@@ -251,7 +273,14 @@ func (m Model) help() string {
 		if m.preview {
 			return "up/down scroll - p close - ctrl+c cancel"
 		}
-		return "enter apply - up/down select - p preview - r replace - s skip - esc back - ctrl+c cancel"
+		return "enter apply - up/down select - p preview - r replace/delete - s skip/keep - esc back - ctrl+c cancel"
+	case toolingStage:
+		switch {
+		case m.update && m.open:
+			return "space toggle - up/down move - esc back - s save - ctrl+c cancel"
+		case m.update:
+			return "enter open - up/down move - s save - esc quit"
+		}
 	case applyStage:
 		return "ctrl+c cancel"
 	case doneStage:

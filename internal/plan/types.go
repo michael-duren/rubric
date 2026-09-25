@@ -19,8 +19,10 @@ const (
 	StateConflict = "conflict"
 	// StateSkip leaves the existing file untouched by explicit decision.
 	StateSkip = "skip"
+	// StateDelete removes an unedited file Rubric wrote but no longer generates.
+	StateDelete = "delete"
 
-	// DecisionReplace resolves a conflict by writing the proposed content.
+	// DecisionReplace resolves a conflict by writing the proposed content, or deleting an obsolete file.
 	DecisionReplace = "replace"
 	// DecisionSkip resolves a conflict by keeping the existing file.
 	DecisionSkip = "skip"
@@ -28,20 +30,21 @@ const (
 
 // Plan is the reviewed set of file actions for one invocation.
 type Plan struct {
-	Mode     string        `json:"mode"`
-	Config   config.Config `json:"config"`
-	Actions  []Action      `json:"actions"`
-	Obsolete []string      `json:"obsolete"`
+	Mode    string        `json:"mode"`
+	Config  config.Config `json:"config"`
+	Actions []Action      `json:"actions"`
 
 	previous Manifest
 }
 
 // Action is the proposed change for one path and the snapshot it was reviewed against.
+// Obsolete marks a path Rubric wrote earlier but no longer generates; resolving it deletes or keeps the file.
 type Action struct {
-	File   render.File `json:"file"`
-	Before Snapshot    `json:"-"`
-	State  string      `json:"state"`
-	Reason string      `json:"reason"`
+	File     render.File `json:"file"`
+	Before   Snapshot    `json:"-"`
+	State    string      `json:"state"`
+	Reason   string      `json:"reason"`
+	Obsolete bool        `json:"obsolete"`
 
 	fixed bool
 }

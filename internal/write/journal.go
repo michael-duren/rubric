@@ -12,6 +12,7 @@ type entry struct {
 	old     []byte
 	oldMode fs.FileMode
 	written string
+	removed bool
 }
 
 type journal struct {

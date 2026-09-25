@@ -35,5 +35,6 @@ var (
 		plan.StateUnchanged: lipgloss.NewStyle().Foreground(muted),
 		plan.StateConflict:  lipgloss.NewStyle().Bold(true).Foreground(red),
 		plan.StateSkip:      lipgloss.NewStyle().Foreground(muted),
+		plan.StateDelete:    lipgloss.NewStyle().Foreground(red),
 	}
 )

@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"slices"
 	"strings"
@@ -93,7 +94,11 @@ func TestToolingCombinations(t *testing.T) {
 	t.Setenv("RUBRIC_SECRET_TOKEN", "s3cr3t-value")
 	f := features(func(f *config.Features) { f.HTTP, f.Database, f.Access = "nethttp", "sqlite", "sql" })
 	for mask := range 16 {
-		tooling := config.Tooling{Skills: mask&1 != 0, Lint: mask&2 != 0, Makefile: mask&4 != 0, Actions: mask&8 != 0}
+		tooling := config.Tooling{Skills: []string{}, Lint: mask&2 != 0, Makefile: mask&4 != 0, Actions: mask&8 != 0}
+		if mask&1 != 0 {
+			tooling.Skills = config.SkillGroups
+		}
+		skills := len(tooling.Skills) > 0
 		for _, mode := range []string{"new", "existing"} {
 			t.Run(fmt.Sprintf("%s-%+v", mode, tooling), func(t *testing.T) {
 				_, files := renderTooling(t, mode, f, tooling)
@@ -106,7 +111,7 @@ func TestToolingCombinations(t *testing.T) {
 					".rubric/check.sh":         tooling.Makefile || tooling.Actions || tooling.Lint,
 				}
 				for _, p := range skillPaths {
-					expect[p] = tooling.Skills
+					expect[p] = skills
 				}
 				for path, want := range expect {
 					if present(path) != want {
@@ -121,7 +126,7 @@ func TestToolingCombinations(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				if saved.Tooling != tooling {
+				if !reflect.DeepEqual(saved.Tooling, tooling) {
 					t.Fatalf("saved tooling %+v, want %+v", saved.Tooling, tooling)
 				}
 				var ops []string
@@ -166,7 +171,7 @@ func TestToolingCombinations(t *testing.T) {
 				}
 				agents := string(testproject.File(t, files, "AGENTS.md"))
 				for _, p := range skillPaths {
-					if strings.Contains(agents, p) != tooling.Skills {
+					if strings.Contains(agents, p) != skills {
 						t.Errorf("AGENTS mentions %s = %v", p, strings.Contains(agents, p))
 					}
 				}
@@ -235,7 +240,7 @@ func TestToolingPstackSkills(t *testing.T) {
 	if _, ok := find(off, ".agents/skills/poteto-mode/SKILL.md"); ok {
 		t.Fatal("pstack installed without --skills")
 	}
-	_, files := renderTooling(t, "new", config.Defaults().Features, config.Tooling{Skills: true})
+	_, files := renderTooling(t, "new", config.Defaults().Features, config.Tooling{Skills: config.SkillGroups})
 	for _, path := range []string{
 		".agents/skills/poteto-mode/SKILL.md", ".agents/skills/create-verification-skill/SKILL.md",
 		".agents/skills/maintain-verification-skill/SKILL.md", ".agents/skills/tdd/SKILL.md",
@@ -267,8 +272,48 @@ func TestToolingPstackSkills(t *testing.T) {
 	}
 }
 
+func TestToolingSkillGroups(t *testing.T) {
+	tests := []struct {
+		groups         []string
+		rubric, pstack bool
+		principles     bool
+		agents, notice bool
+	}{
+		{[]string{config.SkillsRubric}, true, false, false, false, false},
+		{[]string{config.SkillsPrinciples}, false, false, true, false, true},
+		{[]string{config.SkillsPstack, config.SkillsPrinciples}, false, true, true, false, true},
+		{config.SkillGroups, true, true, true, true, true},
+	}
+	for _, tt := range tests {
+		t.Run(strings.Join(tt.groups, ","), func(t *testing.T) {
+			_, files := renderTooling(t, "existing", config.Defaults().Features, config.Tooling{Skills: tt.groups})
+			present := func(path string) bool { _, ok := find(files, path); return ok }
+			for path, want := range map[string]bool{
+				".agents/skills/rubric-workflow/SKILL.md":          tt.rubric,
+				".agents/skills/poteto-mode/SKILL.md":              tt.pstack,
+				".agents/skills/principle-prove-it-works/SKILL.md": tt.principles,
+				".agents/agents/poteto-agent.md":                   tt.agents,
+				".agents/skills/THIRD_PARTY_NOTICES.md":            tt.notice,
+			} {
+				if present(path) != want {
+					t.Errorf("%s present=%v, want %v", path, present(path), want)
+				}
+			}
+			for _, f := range files {
+				if group := render.SkillGroup(f.Path); group != "" && !slices.Contains(tt.groups, group) {
+					t.Errorf("%s generated without group %s", f.Path, group)
+				}
+			}
+			agents := string(testproject.File(t, files, "AGENTS.md"))
+			if strings.Contains(agents, "poteto-mode") != tt.pstack || strings.Contains(agents, ".agents/agents/") != tt.agents {
+				t.Errorf("guidance does not match groups:\n%s", agents)
+			}
+		})
+	}
+}
+
 func TestVendoredPstackMatchesRepository(t *testing.T) {
-	_, files := renderTooling(t, "new", config.Defaults().Features, config.Tooling{Skills: true})
+	_, files := renderTooling(t, "new", config.Defaults().Features, config.Tooling{Skills: config.SkillGroups})
 	count := 0
 	for _, f := range files {
 		if !strings.HasPrefix(f.Path, ".agents/") || strings.Contains(f.Path, "/rubric-") {
@@ -290,7 +335,7 @@ func TestVendoredPstackMatchesRepository(t *testing.T) {
 
 func TestToolingSkills(t *testing.T) {
 	for _, lint := range []bool{false, true} {
-		_, files := renderTooling(t, "new", features(func(f *config.Features) { f.CLI = "flag" }), config.Tooling{Skills: true, Lint: lint})
+		_, files := renderTooling(t, "new", features(func(f *config.Features) { f.CLI = "flag" }), config.Tooling{Skills: config.SkillGroups, Lint: lint})
 		for _, p := range skillPaths {
 			body := string(testproject.File(t, files, p))
 			parts := strings.SplitN(body, "---\n", 3)
@@ -329,7 +374,7 @@ func TestToolingSkills(t *testing.T) {
 func TestSkillFrontmatterQuotesProjectName(t *testing.T) {
 	c := testproject.Config()
 	c.Project.Name = `my: app # "x" 'y'`
-	c.Tooling.Skills = true
+	c.Tooling.Skills = config.SkillGroups
 	files, err := render.Files(c, "new")
 	if err != nil {
 		t.Fatal(err)

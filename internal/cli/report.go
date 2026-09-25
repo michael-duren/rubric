@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"slices"
 	"strings"
 
 	"golang.org/x/mod/semver"
@@ -28,6 +29,7 @@ type diagnostic struct {
 }
 
 type report struct {
+	command     string
 	Status      string           `json:"status"`
 	Mode        string           `json:"mode,omitempty"`
 	Target      string           `json:"target"`
@@ -35,16 +37,15 @@ type report struct {
 	Config      *config.Config   `json:"config,omitempty"`
 	Actions     []actionReport   `json:"actions"`
 	Conflicts   []actionReport   `json:"conflicts"`
-	Obsolete    []string         `json:"obsolete"`
 	Diagnostics []diagnostic     `json:"diagnostics"`
 	Next        []config.Command `json:"next_commands"`
 	Result      *write.Result    `json:"result,omitempty"`
 }
 
-func newReport(target string, dryRun bool, p *plan.Plan, res *write.Result, err error) report {
+func newReport(command, target string, dryRun bool, p *plan.Plan, res *write.Result, err error) report {
 	r := report{
-		Status: status(err, dryRun), Target: target, DryRun: dryRun,
-		Actions: []actionReport{}, Conflicts: []actionReport{}, Obsolete: []string{},
+		command: command, Status: status(err, dryRun), Target: target, DryRun: dryRun,
+		Actions: []actionReport{}, Conflicts: []actionReport{},
 		Diagnostics: []diagnostic{}, Next: []config.Command{}, Result: res,
 	}
 	var conflict *initialize.ConflictError
@@ -61,7 +62,6 @@ func newReport(target string, dryRun bool, p *plan.Plan, res *write.Result, err 
 				r.Conflicts = append(r.Conflicts, item)
 			}
 		}
-		r.Obsolete = append(r.Obsolete, p.Obsolete...)
 		if err == nil {
 			r.Next = append(r.Next, p.Config.Commands...)
 		}
@@ -80,17 +80,18 @@ func notes(p plan.Plan) []diagnostic {
 			"go.mod declares Go %s; Rubric tooling is tested with Go %s. go.mod was not changed.",
 			p.Config.Project.Go, config.GoBaseline)})
 	}
-	for _, rel := range p.Obsolete {
-		out = append(out, diagnostic{Severity: "warning", Message: fmt.Sprintf(
-			"%s was written by Rubric but is no longer generated; review it and delete it if unused", rel)})
-	}
-	if len(plan.Conflicts(p)) > 0 {
+	conflicts := plan.Conflicts(p)
+	if len(conflicts) > 0 {
 		out = append(out, diagnostic{Severity: "error", Message: "resolve each conflict outside rubric (edit, move, or delete the file), then rerun"})
+	}
+	if slices.ContainsFunc(conflicts, func(a plan.Action) bool { return a.Obsolete }) {
+		out = append(out, diagnostic{Severity: "error", Message: "files Rubric no longer generates but you edited: " +
+			"delete them, or run rubric update in a terminal to keep them"})
 	}
 	return out
 }
 
-func writeJSON(w io.Writer, r report) error {
+func writeJSON(w io.Writer, r any) error {
 	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")
 	return enc.Encode(r)
@@ -98,7 +99,7 @@ func writeJSON(w io.Writer, r report) error {
 
 func writeText(out, errw io.Writer, r report) {
 	if r.Mode != "" {
-		printf(out, "rubric init: %s project at %s\n", r.Mode, r.Target)
+		printf(out, "rubric %s: %s project at %s\n", r.command, r.Mode, r.Target)
 		for _, a := range r.Actions {
 			printf(out, "  %-9s %s\n", a.State, a.Path)
 		}
@@ -124,7 +125,12 @@ func writeText(out, errw io.Writer, r report) {
 		printLine(out, "\nDry run: no files were written.")
 	case "ok":
 		if r.Result != nil {
-			printf(out, "\nApplied %d file(s). Dependencies were not downloaded and no project tests were run.\n", len(r.Result.Applied))
+			deleted := ""
+			if n := len(r.Result.Deleted); n > 0 {
+				deleted = fmt.Sprintf(", deleted %d", n)
+			}
+			printf(out, "\nApplied %d file(s)%s. Dependencies were not downloaded and no project tests were run.\n",
+				len(r.Result.Applied), deleted)
 		}
 	}
 	if len(r.Next) > 0 {

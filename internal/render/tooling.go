@@ -58,9 +58,9 @@ func Tooling(c config.Config) ([]File, error) {
 		{c.Tooling.Makefile, "Makefile", "tooling/Makefile.tmpl", 0o644},
 		{c.Tooling.Lint, ".golangci.yml", "tooling/golangci.yml.tmpl", 0o644},
 		{c.Tooling.Actions, ".github/workflows/ci.yml", "tooling/workflow.yml.tmpl", 0o644},
-		{c.Tooling.Skills, ".agents/skills/rubric-workflow/SKILL.md", "tooling/workflow-skill.md.tmpl", 0o644},
-		{c.Tooling.Skills, ".agents/skills/rubric-testing/SKILL.md", "tooling/testing-skill.md.tmpl", 0o644},
-		{c.Tooling.Skills, ".agents/skills/rubric-style/SKILL.md", "tooling/style-skill.md.tmpl", 0o644},
+		{c.Tooling.Has(config.SkillsRubric), ".agents/skills/rubric-workflow/SKILL.md", "tooling/workflow-skill.md.tmpl", 0o644},
+		{c.Tooling.Has(config.SkillsRubric), ".agents/skills/rubric-testing/SKILL.md", "tooling/testing-skill.md.tmpl", 0o644},
+		{c.Tooling.Has(config.SkillsRubric), ".agents/skills/rubric-style/SKILL.md", "tooling/style-skill.md.tmpl", 0o644},
 	}
 	for _, s := range steps {
 		if !s.on {
@@ -161,12 +161,20 @@ func toolingGuidance(c config.Config) []string {
 	if c.Tooling.Actions {
 		out = append(out, "`.github/workflows/ci.yml`: runs the same checks in GitHub Actions")
 	}
-	if c.Tooling.Skills {
+	if c.Tooling.Has(config.SkillsRubric) {
 		out = append(out, "Agent skills: `.agents/skills/rubric-workflow/SKILL.md`, `.agents/skills/rubric-testing/SKILL.md`, "+
 			"`.agents/skills/rubric-style/SKILL.md`")
-		out = append(out, "pstack skills in `.agents/skills/` (start with `poteto-mode`; map and verify features with "+
-			"`create-verification-skill` and `maintain-verification-skill`) and their subagents in `.agents/agents/`; "+
-			"attribution in `.agents/skills/THIRD_PARTY_NOTICES.md`")
+	}
+	switch {
+	case c.Tooling.Has(config.SkillsPstack):
+		text := "pstack skills in `.agents/skills/` (start with `poteto-mode`; map and verify features with " +
+			"`create-verification-skill` and `maintain-verification-skill`) and the `principle-*` skills they cite"
+		if c.Tooling.Has(config.SkillsAgents) {
+			text += "; their subagents in `.agents/agents/`"
+		}
+		out = append(out, text+"; attribution in `"+pstackNotices+"`")
+	case c.Tooling.Has(config.SkillsPrinciples):
+		out = append(out, "pstack `principle-*` skills in `.agents/skills/`; attribution in `"+pstackNotices+"`")
 	}
 	return out
 }

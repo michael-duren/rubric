@@ -168,7 +168,7 @@ func TestPrecedence(t *testing.T) {
 	}
 	p := mustPrepare(t, req)
 	c := p.Config
-	if c.Tooling.Lint || !c.Tooling.Makefile || c.Tooling.Skills || c.Project.Description != "from input" {
+	if c.Tooling.Lint || !c.Tooling.Makefile || len(c.Tooling.Skills) > 0 || c.Project.Description != "from input" {
 		t.Fatalf("precedence wrong: %+v %+v", c.Tooling, c.Project)
 	}
 	if c.Project.Module != "example.com/app" || c.Project.Go != "1.22" {

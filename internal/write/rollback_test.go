@@ -212,3 +212,72 @@ func mapsEqual(a, b map[string]string) bool {
 	}
 	return true
 }
+
+func deleteFixture(t *testing.T) (string, plan.Plan) {
+	t.Helper()
+	root := t.TempDir()
+	if _, err := Apply(context.Background(), root, prepare(t, root, "existing", file("gone/deep/x.txt", "x"), file("a.txt", "a1"))); err != nil {
+		t.Fatal(err)
+	}
+	return root, prepare(t, root, "existing", file("a.txt", "a2"))
+}
+
+func TestApplyDeletesObsoleteFilesAndPrunesEmptyDirectories(t *testing.T) {
+	root, p := deleteFixture(t)
+	put(t, root, "kept/user.txt", "mine")
+	res, err := Apply(context.Background(), root, p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(res.Deleted, []string{"gone/deep/x.txt"}) || !slices.Contains(res.Applied, "a.txt") {
+		t.Fatalf("result = %+v", res)
+	}
+	if _, err := os.Stat(filepath.Join(root, "gone")); !errors.Is(err, fs.ErrNotExist) {
+		t.Fatalf("empty directory kept: %v", err)
+	}
+	if read(t, root, "kept/user.txt") != "mine" {
+		t.Fatal("unrelated file touched")
+	}
+}
+
+func TestDeleteKeepsDirectoriesWithUserFiles(t *testing.T) {
+	root, p := deleteFixture(t)
+	put(t, root, "gone/notes.txt", "mine")
+	if _, err := Apply(context.Background(), root, p); err != nil {
+		t.Fatal(err)
+	}
+	if read(t, root, "gone/notes.txt") != "mine" {
+		t.Fatal("user file lost")
+	}
+	if _, err := os.Stat(filepath.Join(root, "gone/deep")); !errors.Is(err, fs.ErrNotExist) {
+		t.Fatalf("emptied directory kept: %v", err)
+	}
+}
+
+func TestFailureAfterDeleteRestoresDeletedFile(t *testing.T) {
+	root, p := deleteFixture(t)
+	before := snapshotTree(t, root)
+	ops, _ := failRenameAt(1)
+	res, err := applyWithOps(context.Background(), root, p, ops)
+	if !errors.Is(err, errInjected) {
+		t.Fatalf("err = %v", err)
+	}
+	if !slices.Contains(res.Restored, "gone/deep/x.txt") || len(res.Unrecovered) != 0 {
+		t.Fatalf("result = %+v", res)
+	}
+	if after := snapshotTree(t, root); !mapsEqual(before, after) {
+		t.Fatalf("tree not restored:\nbefore %v\nafter  %v", before, after)
+	}
+}
+
+func TestEditBeforeDeleteIsConflict(t *testing.T) {
+	root, p := deleteFixture(t)
+	put(t, root, "gone/deep/x.txt", "edited")
+	var conflict *ConflictError
+	if _, err := Apply(context.Background(), root, p); !errors.As(err, &conflict) {
+		t.Fatalf("err = %v", err)
+	}
+	if read(t, root, "gone/deep/x.txt") != "edited" {
+		t.Fatal("edited file deleted")
+	}
+}

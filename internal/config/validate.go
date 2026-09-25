@@ -101,6 +101,14 @@ func Validate(cfg Config, mode string) error {
 			fail("features.access: must be sql or sqlc when database is %s", f.Database)
 		}
 	}
+	for _, group := range cfg.Tooling.Skills {
+		switch {
+		case !slices.Contains(SkillGroups, group):
+			fail("tooling.skills: %q must be one of %s", group, strings.Join(SkillGroups, ", "))
+		case Requires(group) != "" && !cfg.Tooling.Has(Requires(group)):
+			fail("tooling.skills: %s requires %s", group, Requires(group))
+		}
+	}
 	for i, ep := range cfg.EntryPoints {
 		if hasMarker(ep.Name) || hasMarker(ep.Dir) {
 			fail("entry_points[%d]: must not contain Rubric guidance markers", i)

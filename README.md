@@ -24,8 +24,17 @@ In a terminal it opens a wizard; with `--non-interactive`, `--format json`, or r
 output it runs unattended. See [docs/cli-init.md](docs/cli-init.md) for every flag,
 configuration precedence, conflicts, recovery, and generated test commands.
 
-Everything below the principles is the roadmap. Items other than `rubric init` are not
-implemented, and generated tooling never calls them.
+`rubric update` shows which Rubric features (skill groups, lint, Makefile, Actions) a
+repository has turned on. In a terminal it opens a menu to toggle them, then creates and
+deletes the files that match; see [docs/cli-update.md](docs/cli-update.md).
+
+```text
+rubric update --list                      # active features and pending file changes
+rubric update --skills=rubric --lint      # unattended toggles
+```
+
+Everything below the principles is the roadmap. Items other than `rubric init` and
+`rubric update` are not implemented, and generated tooling never calls them.
 
 ## principles
 

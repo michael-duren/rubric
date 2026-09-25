@@ -18,6 +18,7 @@ const (
 	kindEntryPoints
 	kindCommands
 	kindEvidence
+	kindSkills
 )
 
 type field struct {
@@ -43,7 +44,7 @@ var fields = map[string]field{
 	"features.web":           stringField(func(c *Config) *string { return &c.Features.Web }),
 	"features.e2e":           stringField(func(c *Config) *string { return &c.Features.E2E }),
 	"tooling":                {kind: kindSection},
-	"tooling.skills":         boolField(func(c *Config) *bool { return &c.Tooling.Skills }),
+	"tooling.skills":         {kind: kindSkills, set: setSkills},
 	"tooling.lint":           boolField(func(c *Config) *bool { return &c.Tooling.Lint }),
 	"tooling.makefile":       boolField(func(c *Config) *bool { return &c.Tooling.Makefile }),
 	"tooling.actions":        boolField(func(c *Config) *bool { return &c.Tooling.Actions }),
@@ -57,6 +58,12 @@ var fields = map[string]field{
 	"generator.dependencies": mapField(func(c *Config) *map[string]string { return &c.Generator.Dependencies }),
 	"generator.tools":        mapField(func(c *Config) *map[string]string { return &c.Generator.Tools }),
 	"style":                  stringField(func(c *Config) *string { return &c.Style }),
+}
+
+func setSkills(c *Config, v any) error {
+	groups, err := skillsValue(v)
+	c.Tooling.Skills = groups
+	return err
 }
 
 func stringField(at func(*Config) *string) field {
@@ -187,6 +194,10 @@ func clone(c Config) Config {
 	out.EntryPoints = cloneList(c.EntryPoints)
 	out.Commands = cloneList(c.Commands)
 	out.Evidence = cloneList(c.Evidence)
+	out.Tooling.Skills = slices.Clone(c.Tooling.Skills)
+	if out.Tooling.Skills == nil {
+		out.Tooling.Skills = []string{}
+	}
 	out.Generator.Dependencies = maps.Clone(c.Generator.Dependencies)
 	out.Generator.Tools = maps.Clone(c.Generator.Tools)
 	if out.Generator.Dependencies == nil {

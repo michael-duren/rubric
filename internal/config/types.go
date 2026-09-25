@@ -37,12 +37,12 @@ type Features struct {
 	E2E      string `yaml:"e2e" json:"e2e"`
 }
 
-// Tooling records which optional development tooling is enabled.
+// Tooling records which optional development tooling is enabled; Skills lists enabled skill groups.
 type Tooling struct {
-	Skills   bool `yaml:"skills" json:"skills"`
-	Lint     bool `yaml:"lint" json:"lint"`
-	Makefile bool `yaml:"makefile" json:"makefile"`
-	Actions  bool `yaml:"actions" json:"actions"`
+	Skills   []string `yaml:"skills" json:"skills"`
+	Lint     bool     `yaml:"lint" json:"lint"`
+	Makefile bool     `yaml:"makefile" json:"makefile"`
+	Actions  bool     `yaml:"actions" json:"actions"`
 }
 
 // EntryPoint names an executable package directory relative to the module root.

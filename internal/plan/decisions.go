@@ -28,7 +28,14 @@ func Decide(p Plan, decisions map[string]string) (Plan, error) {
 				return Plan{}, fmt.Errorf("decision for %s: cannot replace: %s", rel, a.Reason)
 			}
 			a.State, a.Reason = StateUpdate, "replace existing content by explicit decision"
+			if a.Obsolete {
+				a.State, a.Reason = StateDelete, "delete edited file by explicit decision"
+			}
 		case DecisionSkip:
+			if a.Obsolete {
+				a.State, a.Reason = StateSkip, "keep edited file by explicit decision; Rubric stops managing it"
+				continue
+			}
 			if mandatory(a.File) {
 				return Plan{}, fmt.Errorf("decision for %s: required Rubric file cannot be skipped", rel)
 			}

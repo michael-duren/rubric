@@ -1,6 +1,7 @@
 package config
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -384,7 +385,7 @@ func TestValidateDefaultsNeedOnlyModule(t *testing.T) {
 	if err := Validate(cfg, "new"); err != nil {
 		t.Fatal(err)
 	}
-	if cfg.Project.Starter != "runnable" || cfg.Tooling != (Tooling{}) || cfg.Features.Config != "stdlib" {
+	if cfg.Project.Starter != "runnable" || !reflect.DeepEqual(cfg.Tooling, Tooling{Skills: []string{}}) || cfg.Features.Config != "stdlib" {
 		t.Fatalf("defaults: %+v", cfg)
 	}
 }

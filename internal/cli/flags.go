@@ -6,7 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 
+	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
 	"github.com/michael-duren/go-skills/internal/config"
@@ -35,7 +37,6 @@ var stringFlags = []struct{ name, key, usage string }{
 }
 
 var boolFlags = []struct{ name, key, usage string }{
-	{"skills", "tooling.skills", "install repo-local agent skills"},
 	{"lint", "tooling.lint", "add golangci-lint configuration and the style analyzer"},
 	{"makefile", "tooling.makefile", "add a Makefile for the configured commands"},
 	{"actions", "tooling.actions", "add a GitHub Actions workflow"},
@@ -46,18 +47,47 @@ func register(fs *pflag.FlagSet, o *options) {
 	for _, f := range stringFlags {
 		fs.String(f.name, "", f.usage)
 	}
-	for _, f := range boolFlags {
-		fs.Bool(f.name, false, f.usage)
-	}
+	registerTooling(fs)
 	fs.StringArrayVar(&o.entryPoints, "entry-point", nil, `existing entry point as JSON, e.g. {"name":"api","dir":"cmd/api"} (repeatable)`)
 	fs.StringArrayVar(&o.commands, "command", nil,
 		`command as JSON, e.g. {"name":"test","dir":".","argv":["go","test","./..."],"env":["NAME"]} (repeatable)`)
 	fs.BoolVar(&o.clearEntries, "clear-entry-points", false, "record an explicitly empty entry point list")
 	fs.BoolVar(&o.clearCommand, "clear-commands", false, "record an explicitly empty command list")
 	fs.StringVar(&o.configPath, "config", "", "read a Rubric configuration document as input")
+	registerRun(fs, o)
+}
+
+func registerUpdate(fs *pflag.FlagSet, o *options, list *bool) {
+	registerTooling(fs)
+	fs.BoolVar(list, "list", false, "print the active features and pending file changes, then exit")
+	registerRun(fs, o)
+}
+
+func registerTooling(fs *pflag.FlagSet) {
+	fs.String("skills", "", "agent skill groups: comma-separated "+strings.Join(config.SkillGroups, ", ")+
+		", all, or none (--skills alone means all; pass a list as --skills=rubric,pstack)")
+	fs.Lookup("skills").NoOptDefVal = "all"
+	for _, f := range boolFlags {
+		fs.Bool(f.name, false, f.usage)
+	}
+}
+
+func registerRun(fs *pflag.FlagSet, o *options) {
 	fs.BoolVar(&o.nonInteractive, "non-interactive", false, "never prompt or start the wizard")
 	fs.BoolVar(&o.dryRun, "dry-run", false, "validate and preview without writing files")
 	fs.StringVar(&o.format, "format", "text", "report format: text or json (json implies --non-interactive)")
+}
+
+func toggled(c *cobra.Command) bool {
+	if c.Flags().Changed("skills") {
+		return true
+	}
+	for _, f := range boolFlags {
+		if c.Flags().Changed(f.name) {
+			return true
+		}
+	}
+	return false
 }
 
 func overrides(fs *pflag.FlagSet, o options) (config.Patch, error) {
@@ -73,6 +103,14 @@ func overrides(fs *pflag.FlagSet, o options) (config.Patch, error) {
 			v, _ := fs.GetBool(f.name)
 			p[f.key] = v
 		}
+	}
+	if fs.Changed("skills") {
+		v, _ := fs.GetString("skills")
+		groups, err := config.ParseSkills(v)
+		if err != nil {
+			return nil, fmt.Errorf("--skills: %w", err)
+		}
+		p["tooling.skills"] = groups
 	}
 	if o.clearEntries && len(o.entryPoints) > 0 {
 		return nil, errors.New("--clear-entry-points cannot be combined with --entry-point")

@@ -10,6 +10,7 @@ import (
 	"golang.org/x/mod/module"
 
 	"github.com/michael-duren/go-skills/internal/config"
+	"github.com/michael-duren/go-skills/internal/features"
 	"github.com/michael-duren/go-skills/internal/initialize"
 )
 
@@ -24,6 +25,7 @@ const (
 type field struct {
 	stage   stage
 	key     string
+	menu    string
 	label   string
 	help    string
 	kind    fieldKind
@@ -65,9 +67,17 @@ func buildFields(mode string, c config.Config, req initialize.Request) []field {
 	}
 	fields = append(fields, field{stage: targetStage, key: "mode", label: "Mode", kind: choiceField, options: []string{"auto", "new", "existing"}, value: req.Mode})
 	fields = append(fields, applicationFields(mode, c)...)
-	fields = append(fields, toolingFields(c.Tooling)...)
+	tooling := c.Tooling
+	if v, ok := req.Overrides["tooling.skills"].([]string); ok {
+		tooling.Skills = v
+	}
+	fields = append(fields, toolingFields(tooling)...)
 	for i := range fields {
 		f := &fields[i]
+		if group := features.SkillGroup(f.key); group != "" {
+			_, f.dirty = req.Overrides["tooling.skills"]
+			continue
+		}
 		value, ok := req.Overrides[f.key]
 		if !ok {
 			continue
@@ -134,6 +144,9 @@ func (m Model) shown(f field) bool {
 func (m Model) visibleFields() []int {
 	var out []int
 	for i, f := range m.fields {
+		if m.update && (f.stage != toolingStage || !m.open || f.menu != features.Menus[m.menu]) {
+			continue
+		}
 		if f.stage == m.stage && m.shown(f) {
 			out = append(out, i)
 		}
@@ -203,12 +216,8 @@ func (m Model) formKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			return m.choose(*f, -1)
 		}
 	case toggleField:
-		if s := msg.String(); s == "space" || s == "x" || s == "right" || s == "left" {
-			next := "true"
-			if f.value == "true" {
-				next = "false"
-			}
-			return m.set(f.key, next, true), nil
+		if s := msg.String(); s == "space" || s == "x" || (!m.update && (s == "right" || s == "left")) {
+			return m.setFeature(f.key, f.value != "true"), nil
 		}
 	}
 	return m, nil

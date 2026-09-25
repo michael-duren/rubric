@@ -127,9 +127,9 @@ func TestFlowExistingProjectFacts(t *testing.T) {
 		t.Fatalf("facts not shown: http=%q entries=%q", m.value("features.http"), m.value("entry_points"))
 	}
 	m = drive(t, m, enter, enter)
-	m = m.toggle(t, "tooling.skills")
+	m = m.toggle(t, "skills.agents")
 	m = drive(t, m, enter)
-	want, err := initialize.Prepare(context.Background(), initialize.Request{Target: root, Mode: "auto", Overrides: config.Patch{"tooling.skills": true}})
+	want, err := initialize.Prepare(context.Background(), initialize.Request{Target: root, Mode: "auto", Overrides: config.Patch{"tooling.skills": []string{"pstack", "principles", "agents"}}})
 	if err != nil {
 		t.Fatal(err)
 	}
