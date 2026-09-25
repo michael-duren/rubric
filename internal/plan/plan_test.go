@@ -343,20 +343,63 @@ func TestAgentsMalformedMarkers(t *testing.T) {
 	}
 }
 
-func TestObsoleteManagedFilesPreservedAndListed(t *testing.T) {
+func TestObsoleteUneditedFilesAreDeleted(t *testing.T) {
 	root := t.TempDir()
 	apply(t, root, prepare(t, root, "existing", []render.File{managed("Makefile", "v1\n"), managed("keep.txt", "k\n")}))
 	p := prepare(t, root, "existing", []render.File{managed("keep.txt", "k\n")})
-	if !slices.Equal(p.Obsolete, []string{"Makefile"}) {
-		t.Fatalf("obsolete = %v", p.Obsolete)
+	got := action(t, p, "Makefile")
+	if got.State != StateDelete || !got.Obsolete || got.File.Kind != render.KindManaged {
+		t.Fatalf("action = %+v", got)
 	}
-	for _, a := range p.Actions {
-		if a.File.Path == "Makefile" {
-			t.Fatal("obsolete file scheduled for change")
-		}
+	if _, kept := manifestOf(t, p).Files["Makefile"]; kept {
+		t.Fatal("deleted file still recorded in the manifest")
+	}
+}
+
+func TestObsoleteEditedFilesConflictUntilDecided(t *testing.T) {
+	root := t.TempDir()
+	apply(t, root, prepare(t, root, "existing", []render.File{managed("Makefile", "v1\n")}))
+	put(t, root, "Makefile", "mine\n")
+	p := prepare(t, root, "existing", nil)
+	if got := action(t, p, "Makefile"); got.State != StateConflict || !got.Obsolete || !strings.Contains(got.Reason, "edited") {
+		t.Fatalf("action = %+v", got)
 	}
 	if _, kept := manifestOf(t, p).Files["Makefile"]; !kept {
-		t.Fatal("obsolete stamp dropped")
+		t.Fatal("undecided obsolete stamp dropped")
+	}
+	deleted, err := Decide(p, map[string]string{"Makefile": DecisionReplace})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := action(t, deleted, "Makefile"); got.State != StateDelete {
+		t.Fatalf("replace decision = %+v", got)
+	}
+	kept, err := Decide(p, map[string]string{"Makefile": DecisionSkip})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := action(t, kept, "Makefile"); got.State != StateSkip {
+		t.Fatalf("skip decision = %+v", got)
+	}
+	for name, decided := range map[string]Plan{"delete": deleted, "keep": kept} {
+		if _, owned := manifestOf(t, decided).Files["Makefile"]; owned {
+			t.Fatalf("%s: Makefile still owned", name)
+		}
+	}
+}
+
+func TestObsoleteMissingFilesAreForgotten(t *testing.T) {
+	root := t.TempDir()
+	apply(t, root, prepare(t, root, "existing", []render.File{managed("Makefile", "v1\n")}))
+	if err := os.Remove(filepath.Join(root, "Makefile")); err != nil {
+		t.Fatal(err)
+	}
+	p := prepare(t, root, "existing", nil)
+	if slices.ContainsFunc(p.Actions, func(a Action) bool { return a.File.Path == "Makefile" }) {
+		t.Fatal("missing obsolete file scheduled")
+	}
+	if _, kept := manifestOf(t, p).Files["Makefile"]; kept {
+		t.Fatal("missing obsolete file still owned")
 	}
 }
 
@@ -449,5 +492,18 @@ func TestDecide(t *testing.T) {
 				t.Fatal("invalid decision accepted")
 			}
 		})
+	}
+}
+
+func TestObsoleteUnderReplacedDirectoryIsForgotten(t *testing.T) {
+	root := t.TempDir()
+	apply(t, root, prepare(t, root, "existing", []render.File{managed(".github/workflows/ci.yml", "c\n")}))
+	if err := os.RemoveAll(filepath.Join(root, ".github")); err != nil {
+		t.Fatal(err)
+	}
+	put(t, root, ".github", "not a directory\n")
+	p := prepare(t, root, "existing", nil)
+	if slices.ContainsFunc(p.Actions, func(a Action) bool { return a.File.Path == ".github/workflows/ci.yml" }) {
+		t.Fatal("unreachable obsolete file scheduled")
 	}
 }

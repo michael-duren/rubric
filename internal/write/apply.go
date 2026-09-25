@@ -15,9 +15,10 @@ import (
 	"github.com/michael-duren/go-skills/internal/plan"
 )
 
-// Result lists paths written, paths restored after a failure, and paths that could not be restored safely.
+// Result lists paths written or deleted, paths restored after a failure, and paths that could not be restored safely.
 type Result struct {
 	Applied     []string `json:"applied"`
+	Deleted     []string `json:"deleted"`
 	Restored    []string `json:"restored"`
 	Unrecovered []string `json:"unrecovered"`
 }
@@ -56,13 +57,13 @@ func (e *ApplyError) Unwrap() error {
 	return e.Cause
 }
 
-// Apply writes the plan's create and update actions beneath target, manifest last.
+// Apply deletes, then writes the plan's create and update actions beneath target, manifest last.
 func Apply(ctx context.Context, target string, p plan.Plan) (Result, error) {
 	return applyWithOps(ctx, target, p, defaultOperations())
 }
 
 func applyWithOps(ctx context.Context, target string, p plan.Plan, ops operations) (Result, error) {
-	res := Result{Applied: []string{}, Restored: []string{}, Unrecovered: []string{}}
+	res := emptyResult()
 	if err := ctx.Err(); err != nil {
 		return res, err
 	}
@@ -90,33 +91,46 @@ func applyWithOps(ctx context.Context, target string, p plan.Plan, ops operation
 	if err := preflight(ops, anc, actions); err != nil {
 		return res, err
 	}
-	w := writer{ops: ops, anc: anc}
+	w := writer{ops: ops, anc: anc, applied: []string{}, deleted: []string{}}
 	for _, a := range actions {
 		if err := ctx.Err(); err != nil {
 			return w.fail(err)
 		}
-		if err := w.replace(a); err != nil {
+		apply := w.replace
+		if a.State == plan.StateDelete {
+			apply = w.delete
+		}
+		if err := apply(a); err != nil {
 			return w.fail(err)
 		}
 	}
-	res.Applied = w.applied
+	w.prune()
+	res.Applied, res.Deleted = w.applied, w.deleted
 	return res, nil
 }
 
+func emptyResult() Result {
+	return Result{Applied: []string{}, Deleted: []string{}, Restored: []string{}, Unrecovered: []string{}}
+}
+
 func pending(p plan.Plan) []plan.Action {
-	var out []plan.Action
+	var deletes, writes []plan.Action
 	var manifest *plan.Action
 	for _, a := range p.Actions {
-		if a.State != plan.StateCreate && a.State != plan.StateUpdate {
-			continue
-		}
-		if a.File.Path == plan.ManifestPath {
+		switch {
+		case a.State == plan.StateDelete:
+			deletes = append(deletes, a)
+		case a.State != plan.StateCreate && a.State != plan.StateUpdate:
+		case a.File.Path == plan.ManifestPath:
 			manifest = &a
-			continue
+		default:
+			writes = append(writes, a)
 		}
-		out = append(out, a)
 	}
-	slices.SortFunc(out, func(a, b plan.Action) int { return strings.Compare(a.File.Path, b.File.Path) })
+	byPath := func(a, b plan.Action) int { return strings.Compare(a.File.Path, b.File.Path) }
+	slices.SortFunc(deletes, byPath)
+	slices.SortFunc(writes, byPath)
+	out := append(deletes, writes...)
 	if manifest != nil {
 		out = append(out, *manifest)
 	}
@@ -152,6 +166,7 @@ type writer struct {
 	anc     anchor
 	journal journal
 	applied []string
+	deleted []string
 	seq     int
 }
 
@@ -225,4 +240,41 @@ func (w *writer) replace(a plan.Action) error {
 	})
 	w.applied = append(w.applied, rel)
 	return nil
+}
+
+func (w *writer) delete(a plan.Action) error {
+	rel := a.File.Path
+	if err := noSymlinks(w.ops, w.anc, rel); err != nil {
+		return err
+	}
+	old, exists, err := current(w.ops, w.anc, rel)
+	if err != nil {
+		return err
+	}
+	if !exists || !unchanged(a.Before, old, exists) {
+		return &ConflictError{Paths: []string{rel}}
+	}
+	if err := w.ops.remove(w.anc.root, w.anc.name(rel)); err != nil {
+		return err
+	}
+	w.journal.entries = append(w.journal.entries, entry{path: rel, existed: true, old: old, oldMode: a.Before.Mode.Perm(), removed: true})
+	w.deleted = append(w.deleted, rel)
+	return nil
+}
+
+func (w *writer) prune() {
+	seen := map[string]bool{}
+	var dirs []string
+	for _, rel := range w.deleted {
+		for _, dir := range parents(rel) {
+			if !seen[dir] {
+				seen[dir] = true
+				dirs = append(dirs, dir)
+			}
+		}
+	}
+	slices.SortFunc(dirs, func(a, b string) int { return strings.Count(b, "/") - strings.Count(a, "/") })
+	for _, dir := range dirs {
+		_ = w.ops.remove(w.anc.root, w.anc.name(dir))
+	}
 }

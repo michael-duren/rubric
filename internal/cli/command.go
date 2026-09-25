@@ -3,9 +3,12 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
 
@@ -37,7 +40,7 @@ func Run(ctx context.Context, args []string, s Streams) int {
 	root.SetErr(s.Err)
 	root.SetFlagErrorFunc(func(_ *cobra.Command, err error) error { return &usageError{err: err} })
 	root.CompletionOptions.DisableDefaultCmd = true
-	root.AddCommand(initCommand(s))
+	root.AddCommand(initCommand(s), updateCommand(s))
 	cmd, err := root.ExecuteContextC(ctx)
 	if err == nil {
 		return exitOK
@@ -61,6 +64,8 @@ func reported(cmd *cobra.Command) bool {
 	return cmd != nil && cmd.Annotations["reported"] == "true"
 }
 
+type wizardFunc func(context.Context, initialize.Request, io.Reader, io.Writer) (wizard.Outcome, error)
+
 func initCommand(s Streams) *cobra.Command {
 	var o options
 	cmd := &cobra.Command{
@@ -76,34 +81,104 @@ func initCommand(s Streams) *cobra.Command {
 	register(cmd.Flags(), &o)
 	cmd.RunE = func(c *cobra.Command, args []string) error {
 		c.Annotations["ran"] = "true"
-		if o.format != "text" && o.format != "json" {
-			return &usageError{err: fmt.Errorf("--format: %q must be text or json", o.format)}
-		}
-		target := "."
-		if len(args) == 1 {
-			target = args[0]
-		}
-		c.Annotations["reported"] = "true"
-		if s.Terminal && o.format == "text" && !o.nonInteractive && !o.dryRun {
-			p, res, err := interactive(c.Context(), c, o, target, s)
-			writeText(s.Out, s.Err, newReport(target, false, p, res, err))
+		if err := checkFormat(o); err != nil {
 			return err
 		}
-		p, res, err := execute(c.Context(), c, o, target)
-		r := newReport(target, o.dryRun, p, res, err)
-		if o.format == "json" {
-			if werr := writeJSON(s.Out, r); werr != nil {
-				return werr
-			}
-		} else {
-			writeText(s.Out, s.Err, r)
-		}
-		return err
+		return pipeline(c, o, targetArg(args), s, "init", runWizard)
 	}
 	return cmd
 }
 
-var runWizard = wizard.Run
+func updateCommand(s Streams) *cobra.Command {
+	var o options
+	var list bool
+	cmd := &cobra.Command{
+		Use:   "update [directory]",
+		Short: "Show and change which Rubric features are active in an initialized repository",
+		Long: "Show the Rubric features recorded in rubric.yaml and change them. In a terminal, update opens a menu of\n" +
+			"skills and tooling to toggle; saving reviews and applies the changes, creating files for features turned on\n" +
+			"and deleting unedited files for features turned off. Files you edited are conflicts you delete or keep.\n\n" +
+			"--list prints the active features and pending file changes without writing. Exit status: 0 success,\n" +
+			"2 invalid input, conflicts, or no rubric.yaml, 1 operational failure, 130 cancelled.",
+		Args:        cobra.MaximumNArgs(1),
+		Annotations: map[string]string{},
+	}
+	registerUpdate(cmd.Flags(), &o, &list)
+	cmd.RunE = func(c *cobra.Command, args []string) error {
+		c.Annotations["ran"] = "true"
+		if err := checkFormat(o); err != nil {
+			return err
+		}
+		target := targetArg(args)
+		if err := requireConfig(target); err != nil {
+			return err
+		}
+		o.mode = "existing"
+		if list {
+			if toggled(c) || o.dryRun {
+				return &usageError{err: fmt.Errorf("--list cannot be combined with feature flags or --dry-run")}
+			}
+			return listFeatures(c, o, target, s)
+		}
+		return pipeline(c, o, target, s, "update", runUpdateWizard)
+	}
+	return cmd
+}
+
+func checkFormat(o options) error {
+	if o.format != "text" && o.format != "json" {
+		return &usageError{err: fmt.Errorf("--format: %q must be text or json", o.format)}
+	}
+	return nil
+}
+
+func targetArg(args []string) string {
+	if len(args) == 1 {
+		return args[0]
+	}
+	return "."
+}
+
+func requireConfig(target string) error {
+	info, err := os.Stat(filepath.Join(target, "rubric.yaml"))
+	switch {
+	case errors.Is(err, fs.ErrNotExist):
+		return &initialize.InputError{Cause: fmt.Errorf("%s has no rubric.yaml; run rubric init first", target)}
+	case err != nil:
+		return err
+	case !info.Mode().IsRegular():
+		return &initialize.InputError{Cause: errors.New("rubric.yaml is not a regular file")}
+	}
+	return nil
+}
+
+func pipeline(c *cobra.Command, o options, target string, s Streams, name string, wiz wizardFunc) error {
+	c.Annotations["reported"] = "true"
+	if s.Terminal && o.format == "text" && !o.nonInteractive && !o.dryRun {
+		p, res, err := interactive(c.Context(), c, o, target, s, wiz)
+		if name == "update" && p == nil && err == nil {
+			printLine(s.Out, "rubric update: no changes")
+			return nil
+		}
+		writeText(s.Out, s.Err, newReport(name, target, false, p, res, err))
+		return err
+	}
+	p, res, err := execute(c.Context(), c, o, target)
+	r := newReport(name, target, o.dryRun, p, res, err)
+	if o.format == "json" {
+		if werr := writeJSON(s.Out, r); werr != nil {
+			return werr
+		}
+	} else {
+		writeText(s.Out, s.Err, r)
+	}
+	return err
+}
+
+var (
+	runWizard       wizardFunc = wizard.Run
+	runUpdateWizard wizardFunc = wizard.RunUpdate
+)
 
 func request(c *cobra.Command, o options, target string) (initialize.Request, error) {
 	patch, err := overrides(c.Flags(), o)
@@ -121,12 +196,12 @@ func request(c *cobra.Command, o options, target string) (initialize.Request, er
 	return req, nil
 }
 
-func interactive(ctx context.Context, c *cobra.Command, o options, target string, s Streams) (*plan.Plan, *write.Result, error) {
+func interactive(ctx context.Context, c *cobra.Command, o options, target string, s Streams, wiz wizardFunc) (*plan.Plan, *write.Result, error) {
 	req, err := request(c, o, target)
 	if err != nil {
 		return nil, nil, err
 	}
-	outcome, err := runWizard(ctx, req, s.In, s.Out)
+	outcome, err := wiz(ctx, req, s.In, s.Out)
 	if outcome.Cancelled && err == nil {
 		err = context.Canceled
 	}

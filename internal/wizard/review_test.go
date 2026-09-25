@@ -71,7 +71,7 @@ func manyActions(t *testing.T) Model {
 	m = drive(t, m, enter)
 	m = m.setChoice(t, "features.http", "chi")
 	m = drive(t, m, enter)
-	for _, k := range []string{"tooling.skills", "tooling.lint", "tooling.makefile", "tooling.actions"} {
+	for _, k := range []string{"skills.rubric", "skills.agents", "tooling.lint", "tooling.makefile", "tooling.actions"} {
 		m = m.toggle(t, k)
 	}
 	m = drive(t, m, enter)
@@ -159,7 +159,7 @@ func TestRunWaitsForApplyAfterExternalCancel(t *testing.T) {
 	}
 	done := make(chan ran, 1)
 	go func() {
-		o, err := runWith(ctx, initialize.Request{Target: t.TempDir(), Mode: "auto"}, backend, inR, io.Discard)
+		o, err := runModel(ctx, New(ctx, initialize.Request{Target: t.TempDir(), Mode: "auto"}, backend), inR, io.Discard)
 		done <- ran{o, err}
 	}()
 	waitFor := func(cond func() bool) {

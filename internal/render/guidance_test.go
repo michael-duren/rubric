@@ -199,7 +199,7 @@ func TestGuidanceNeverCallsDeferredCommands(t *testing.T) {
 	for _, mode := range []string{"new", "existing"} {
 		c := testproject.Config()
 		c.Features.HTTP = "chi"
-		c.Tooling = config.Tooling{Skills: true, Lint: true, Makefile: true, Actions: true}
+		c.Tooling = config.Tooling{Skills: config.SkillGroups, Lint: true, Makefile: true, Actions: true}
 		authored := instructions(t, c, mode)
 		all := authored
 		files, err := render.Files(c, mode)

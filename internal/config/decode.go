@@ -132,6 +132,11 @@ func (w walker) value(n *yaml.Node, path string, k kind) (any, error) {
 		return scalar(n, path, "!!int", "integer", strconv.Atoi)
 	case kindStringMap:
 		return w.stringMap(n, path)
+	case kindSkills:
+		if n.Kind == yaml.ScalarNode {
+			return scalar(n, path, "!!bool", "list of skill groups", strconv.ParseBool)
+		}
+		return w.stringList(n, path)
 	case kindEntryPoints:
 		return decodeItems(w, n, path, k, func(m map[string]any) EntryPoint {
 			return EntryPoint{Name: str(m["name"]), Dir: str(m["dir"])}

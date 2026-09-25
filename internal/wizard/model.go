@@ -11,8 +11,10 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/michael-duren/go-skills/internal/config"
+	"github.com/michael-duren/go-skills/internal/features"
 	"github.com/michael-duren/go-skills/internal/initialize"
 	"github.com/michael-duren/go-skills/internal/plan"
+	"github.com/michael-duren/go-skills/internal/render"
 	"github.com/michael-duren/go-skills/internal/write"
 )
 
@@ -81,6 +83,10 @@ type Model struct {
 	message      string
 	applyErr     error
 	outcome      Outcome
+	update       bool
+	loaded       bool
+	menu         int
+	open         bool
 }
 
 // New returns a wizard for req whose preparation and writes go through backend.
@@ -93,9 +99,22 @@ func New(ctx context.Context, req initialize.Request, backend Backend) Model {
 	return m
 }
 
+// NewUpdate returns the feature menu for an initialized repository; saving leads to the same review and apply.
+func NewUpdate(ctx context.Context, req initialize.Request, backend Backend) Model {
+	req.Mode = "existing"
+	m := New(ctx, req, backend)
+	m.update, m.mode, m.stage = true, "existing", toolingStage
+	return m
+}
+
 // Init runs a baseline preparation to detect the mode and prefill existing-project facts.
+// The update menu's baseline ignores flag overrides so changes are measured against rubric.yaml.
 func (m Model) Init() tea.Cmd {
-	return m.prepareCmd(m.reqID, true, m.base)
+	req := m.base
+	if m.update {
+		req.Overrides = nil
+	}
+	return m.prepareCmd(m.reqID, true, req)
 }
 
 func (m Model) prepareCmd(id int, baseline bool, req initialize.Request) tea.Cmd {
@@ -128,7 +147,12 @@ func (m Model) onKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m.cancel()
 	}
 	switch m.stage {
-	case targetStage, applicationStage, toolingStage:
+	case toolingStage:
+		if m.update {
+			return m.menuKey(msg)
+		}
+		return m.formKey(msg)
+	case targetStage, applicationStage:
 		return m.formKey(msg)
 	case reviewStage:
 		return m.reviewKey(msg)
@@ -190,7 +214,7 @@ func (m Model) onBaseline(msg planMsg) Model {
 		m.message = msg.err.Error()
 	}
 	requested := m.value("mode")
-	m.mode, m.detected = mode, cfg
+	m.mode, m.detected, m.loaded = mode, cfg, msg.err == nil
 	m.fields = buildFields(mode, cfg, m.base)
 	if requested != "" {
 		m = m.set("mode", requested, requested != m.base.Mode)
@@ -221,10 +245,13 @@ func (m Model) request() initialize.Request {
 			req.Mode = f.value
 			continue
 		}
-		if !f.dirty {
+		if !f.dirty || features.SkillGroup(f.key) != "" {
 			continue
 		}
 		req.Overrides[f.key] = f.patchValue()
+	}
+	if m.skillsDirty() {
+		req.Overrides["tooling.skills"] = m.tooling().Skills
 	}
 	if m.value("features.database") == "none" {
 		delete(req.Overrides, "features.access")
@@ -247,11 +274,19 @@ func (m Model) startPrepare() (Model, tea.Cmd) {
 
 // Run shows the wizard on in and out until it finishes, returning the outcome and any apply error.
 func Run(ctx context.Context, req initialize.Request, in io.Reader, out io.Writer) (Outcome, error) {
-	return runWith(ctx, req, Backend{Prepare: initialize.Prepare, Apply: initialize.Apply}, in, out)
+	return runModel(ctx, New(ctx, req, defaultBackend()), in, out)
 }
 
-func runWith(ctx context.Context, req initialize.Request, backend Backend, in io.Reader, out io.Writer) (Outcome, error) {
-	m := New(ctx, req, backend)
+// RunUpdate shows the feature menu on in and out until it finishes, returning the outcome and any apply error.
+func RunUpdate(ctx context.Context, req initialize.Request, in io.Reader, out io.Writer) (Outcome, error) {
+	return runModel(ctx, NewUpdate(ctx, req, defaultBackend()), in, out)
+}
+
+func defaultBackend() Backend {
+	return Backend{Prepare: initialize.Prepare, Apply: initialize.Apply}
+}
+
+func runModel(ctx context.Context, m Model, in io.Reader, out io.Writer) (Outcome, error) {
 	final, err := tea.NewProgram(m, tea.WithContext(ctx), tea.WithInput(in), tea.WithOutput(out)).Run()
 	if fm, ok := final.(Model); ok {
 		m = fm
@@ -286,8 +321,8 @@ func toolingFor(path string) []string {
 		return []string{"tooling.lint"}
 	case path == ".github/workflows/ci.yml":
 		return []string{"tooling.actions"}
-	case strings.HasPrefix(path, ".agents/skills/"):
-		return []string{"tooling.skills"}
+	case render.SkillGroup(path) != "":
+		return []string{features.SkillKey(render.SkillGroup(path))}
 	}
 	return nil
 }

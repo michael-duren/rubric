@@ -13,7 +13,7 @@ func (w *writer) fail(cause error) (Result, error) {
 }
 
 func (w *writer) rollback() Result {
-	res := Result{Applied: []string{}, Restored: []string{}, Unrecovered: []string{}}
+	res := emptyResult()
 	for _, e := range slices.Backward(w.journal.entries) {
 		if w.restore(e) {
 			res.Restored = append(res.Restored, e.path)
@@ -35,7 +35,10 @@ func (w *writer) restore(e entry) bool {
 		return false
 	}
 	data, exists, err := current(w.ops, w.anc, e.path)
-	if err != nil || !exists || digest(data) != e.written {
+	switch {
+	case err != nil, e.removed && exists:
+		return false
+	case !e.removed && (!exists || digest(data) != e.written):
 		return false
 	}
 	if !e.existed {

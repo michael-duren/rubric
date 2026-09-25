@@ -4,17 +4,39 @@ import (
 	"fmt"
 
 	"github.com/michael-duren/go-skills/internal/config"
+	"github.com/michael-duren/go-skills/internal/features"
 )
 
 func toolingFields(t config.Tooling) []field {
-	return []field{
-		{stage: toolingStage, key: "tooling.skills", label: "Agent skills", kind: toggleField, value: fmt.Sprint(t.Skills),
-			help: "adds .agents/skills/rubric-{workflow,testing,style} plus pstack skills and agents"},
-		{stage: toolingStage, key: "tooling.lint", label: "Linting", kind: toggleField, value: fmt.Sprint(t.Lint),
-			help: "adds .golangci.yml, .rubric/style, and .rubric/check.sh"},
-		{stage: toolingStage, key: "tooling.makefile", label: "Makefile", kind: toggleField, value: fmt.Sprint(t.Makefile),
-			help: "adds Makefile and .rubric/check.sh"},
-		{stage: toolingStage, key: "tooling.actions", label: "GitHub Actions", kind: toggleField, value: fmt.Sprint(t.Actions),
-			help: "adds .github/workflows/ci.yml and .rubric/check.sh"},
+	out := make([]field, len(features.All))
+	for i, f := range features.All {
+		out[i] = field{stage: toolingStage, key: f.Key, menu: f.Menu, label: f.Label, kind: toggleField,
+			value: fmt.Sprint(features.Enabled(t, f.Key)), help: "adds " + f.Help}
 	}
+	return out
+}
+
+func (m Model) tooling() config.Tooling {
+	return features.Build(func(key string) bool { return m.value(key) == "true" })
+}
+
+// setFeature switches key and cascades skill dependencies, marking every field it changes as edited.
+func (m Model) setFeature(key string, on bool) Model {
+	next := features.Set(m.tooling(), key, on)
+	for _, f := range features.All {
+		value := fmt.Sprint(features.Enabled(next, f.Key))
+		if f.Key == key || value != m.value(f.Key) {
+			m = m.set(f.Key, value, true)
+		}
+	}
+	return m
+}
+
+func (m Model) skillsDirty() bool {
+	for _, f := range m.fields {
+		if f.dirty && features.SkillGroup(f.key) != "" {
+			return true
+		}
+	}
+	return false
 }

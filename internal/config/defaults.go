@@ -32,6 +32,7 @@ func Defaults() Config {
 			Web:      "none",
 			E2E:      "none",
 		},
+		Tooling:  Tooling{Skills: []string{}},
 		Evidence: []Evidence{},
 		Generator: Generator{
 			Version:      GeneratorVersion,

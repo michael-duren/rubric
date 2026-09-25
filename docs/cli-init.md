@@ -41,7 +41,7 @@ standard input or output is not a terminal, `--non-interactive` is set,
 | `--app-config` | `stdlib` (default), `viper` | Runtime settings in `internal/config`. Viper does not require Cobra. |
 | `--web` | `none`, `htmx` | Server-rendered UI in `internal/web`: templ views, htmx requests, and Alpine.js behavior. Requires `--http`. |
 | `--e2e` | `none`, `playwright` | Playwright browser tests in `e2e/` (build tag `e2e`). Requires `--web htmx`. |
-| `--skills` | boolean | Add `.agents/skills/rubric-*/SKILL.md` plus the vendored [pstack](https://github.com/cursor/plugins/tree/main/pstack) skills (`poteto-mode`, `tdd`, `create-verification-skill`, …) and their subagents in `.agents/agents/`, with an MIT notice in `.agents/skills/THIRD_PARTY_NOTICES.md`. |
+| `--skills` | `all`, `none`, or groups | Agent skill groups, comma-separated: `rubric` (`.agents/skills/rubric-*/SKILL.md`), `pstack` (the vendored [pstack](https://github.com/cursor/plugins/tree/main/pstack) skills such as `poteto-mode`, `tdd`, and `create-verification-skill`), `principles` (the `principle-*` skills with the MIT notice in `.agents/skills/THIRD_PARTY_NOTICES.md`), and `agents` (subagents in `.agents/agents/`). `pstack` requires `principles`; `agents` requires `pstack`. `--skills` alone means `all`; pass a list with `=`, as in `--skills=rubric,pstack,principles`. |
 | `--lint` | boolean | Add `.golangci.yml`, the comment analyzer in `.rubric/style`, and a `lint` check. |
 | `--makefile` | boolean | Add a `Makefile` whose targets call `.rubric/check.sh`. |
 | `--actions` | boolean | Add `.github/workflows/ci.yml`. It uses Make only when the Makefile is enabled. |
@@ -112,7 +112,7 @@ Every new project gets `go.mod`, `README.md`, `rubric.yaml`, `AGENTS.md`,
 manifest; application code, tests, and `go.mod` are left alone.
 
 The JSON report is one document on standard output with `status`, `mode`,
-`config`, `actions`, `conflicts`, `obsolete`, `diagnostics`, `next_commands`,
+`config`, `actions`, `conflicts`, `diagnostics`, `next_commands`,
 and `result`. Rendered file contents and environment values are never included.
 
 Exit status: `0` success or a conflict-free dry run, `2` invalid input or
@@ -193,5 +193,9 @@ off so guidance never mentions it. `rubric.yaml` and `AGENTS.md` cannot be skipp
 Files are staged and each target is rechecked immediately before replacement.
 If a write fails or you cancel during apply, Rubric restores the files it wrote
 when they have not changed since; paths it cannot safely restore are listed in
-the error. Files Rubric no longer generates are reported as obsolete and never
-deleted automatically. Rerunning an unchanged project is a no-op.
+the error. A file Rubric wrote but no longer generates, because its feature was
+turned off, is deleted while it still matches what Rubric wrote, and directories
+left empty are removed. If you edited it, it is a conflict: the wizard lets you
+delete it (`r`) or keep it (`s`, after which Rubric stops managing it); unattended
+runs stop until you delete or restore it. Rerunning an unchanged project is a no-op.
+To change features later, use [`rubric update`](cli-update.md).

@@ -34,7 +34,7 @@ func Prepare(target, mode string, cfg config.Config, files []render.File) (Plan,
 	if err != nil {
 		return Plan{}, fmt.Errorf("plan: %w", err)
 	}
-	p := Plan{Mode: mode, Config: cfg, Actions: []Action{}, Obsolete: []string{}, previous: previous}
+	p := Plan{Mode: mode, Config: cfg, Actions: []Action{}, previous: previous}
 	for _, f := range files {
 		a, err := classify(target, f, previous)
 		if err != nil {
@@ -46,11 +46,13 @@ func Prepare(target, mode string, cfg config.Config, files []render.File) (Plan,
 		if seen[rel] {
 			continue
 		}
-		snap, err := Capture(target, rel)
-		if err == nil && !snap.Exists {
-			continue
+		a, err := retire(target, rel, previous.Files[rel])
+		if err != nil {
+			return Plan{}, fmt.Errorf("plan: %s: %w", rel, err)
 		}
-		p.Obsolete = append(p.Obsolete, rel)
+		if a.Before.Exists {
+			p.Actions = append(p.Actions, a)
+		}
 	}
 	manifestAction := Action{
 		File:   render.File{Path: ManifestPath, Mode: 0o644, Kind: render.KindManaged},
@@ -123,6 +125,26 @@ func classify(target string, f render.File, previous Manifest) (Action, error) {
 	return a, nil
 }
 
+func retire(target, rel string, stamp Stamp) (Action, error) {
+	a := Action{File: render.File{Path: rel, Kind: stamp.Kind}, Obsolete: true}
+	snap, err := Capture(target, rel)
+	a.Before = snap
+	switch {
+	case err != nil && (snap.Exists || errors.Is(err, errSymlink)):
+		a.Before.Exists = true
+		a.State, a.Reason, a.fixed = StateConflict, "no longer generated: "+err.Error(), true
+	case err != nil && strings.Contains(err.Error(), "not a directory"):
+	case err != nil:
+		return Action{}, err
+	case !snap.Exists:
+	case snap.Hash == stamp.Hash:
+		a.State, a.Reason = StateDelete, "no longer generated; unedited since Rubric wrote it"
+	default:
+		a.State, a.Reason = StateConflict, "no longer generated, but edited since Rubric wrote it"
+	}
+	return a, nil
+}
+
 func ownedBytes(f render.File) []byte {
 	if f.Kind != render.KindGuidance {
 		return f.Data
@@ -136,13 +158,16 @@ func ownedBytes(f render.File) []byte {
 
 func refreshManifest(p Plan) (Plan, error) {
 	next := Manifest{Version: manifestVersion, Files: map[string]Stamp{}}
-	for _, rel := range p.Obsolete {
-		next.Files[rel] = p.previous.Files[rel]
-	}
 	idx := -1
 	for i, a := range p.Actions {
 		if a.File.Path == ManifestPath {
 			idx = i
+			continue
+		}
+		if a.Obsolete {
+			if a.State == StateConflict {
+				next.Files[a.File.Path] = p.previous.Files[a.File.Path]
+			}
 			continue
 		}
 		if a.File.Kind != render.KindManaged && a.File.Kind != render.KindGuidance {
